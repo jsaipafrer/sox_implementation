@@ -7,7 +7,7 @@ type ButtonProps = {
 export default function Button({ label, onClick, width }: ButtonProps) {
     const all_classes =
         " bg-blue-200 hover:bg-blue-300 text-black py-2 px-4 rounded-md transition-colors";
-    let width_class = width ? `w-${width}` : "w-95/100";
+    let width_class = width ? `w-${width}` : "w-full";
     return (
         <button onClick={onClick} className={width_class + all_classes}>
             {label}

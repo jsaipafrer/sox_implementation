@@ -24,7 +24,7 @@ export default function NewDisputeModal({
 
     return (
         <Modal title={title} onClose={onClose}>
-            <div className="space-y-4">
+            <form className="space-y-4">
                 <div>
                     <label className="block mb-1 font-medium">
                         Buyer's public key
@@ -61,11 +61,11 @@ export default function NewDisputeModal({
                     />
                 </div>
 
-                <div className="flex gap-8">
-                    <Button label="Submit" onClick={handleSubmit} width="1/2" />
-                    <Button label="Cancel" onClick={onClose} width="1/2" />
+                <div className="flex gap-8 justify-between items-center">
+                    <Button label="Submit" onClick={handleSubmit} />
+                    <Button label="Cancel" onClick={onClose} />
                 </div>
-            </div>
+            </form>
         </Modal>
     );
 }

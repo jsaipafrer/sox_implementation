@@ -20,7 +20,11 @@ export default function Home() {
 
             <div className="flex gap-8 justify-between items-center">
                 <Button
-                    label="+ New contract"
+                    label="+ New pre-contract"
+                    onClick={() => showModalNewContract(true)}
+                />
+                <Button
+                    label="+ un autre truc"
                     onClick={() => showModalNewContract(true)}
                 />
                 <Button
@@ -30,25 +34,8 @@ export default function Home() {
             </div>
 
             <div className="flex gap-8 mt-8">
-                <ContractsListView
-                    title="Contracts"
-                    headers={["ID", "Price", "bli", "bla"]}
-                    rows={[
-                        ["1", "50", "aaa", "bbb"],
-                        ["2", "30", "ccc", "ddd"],
-                    ]}
-                />
-                <DisputeListView
-                    title="Disputes"
-                    headers={["ID", "Price", "bli", "bla"]}
-                    rows={[
-                        ["1", "50", "aaa", "bbb"],
-                        ["2", "30", "ccc", "ddd"],
-                        ["3", "80", "afsdfas", "dddfsfsfs"],
-                        ["4", "5", "caaacc", "dddddeeedd"],
-                        ["5", ".1", "ccbbbc", "dfafedd"],
-                    ]}
-                />
+                <ContractsListView />
+                {/* <DisputeListView /> */}
             </div>
 
             {modalNewContractShown && (

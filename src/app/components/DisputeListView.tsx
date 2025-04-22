@@ -1,50 +1,70 @@
 "use client";
 
-import { ListViewProps } from "./ContractsListView";
 import Button from "./Button";
 import { useState } from "react";
 import Modal from "./Modal";
 import SponsorModal from "./SponsorModal";
 import { sha256 } from "../lib/sha256";
 
-export default function ContractsListView({
-    title,
-    headers,
-    rows,
-}: ListViewProps) {
+export default function ContractsListView() {
     const [modalProofShown, showModalProof] = useState(false);
     const [modalSponsorShown, showModalSponsor] = useState(false);
+
+    const totalColumns = headers.length + 2; // +2 for the two button columns
+    const columnWidth = `${100 / totalColumns}%`;
 
     return (
         <div className="bg-gray-300 p-4 rounded w-1/2 overflow-auto">
             <h2 className="text-lg font-semibold mb-4">{title}</h2>
-            <table className="w-full border-collapse">
+            <table className="w-full table-fixed border-collapse">
                 <thead>
-                    <tr className="border-b border-black p-2 text-left font-medium">
+                    <tr className="border-b border-black text-left font-medium">
                         {headers.map((header, index) => (
-                            <th key={index}>{header}</th>
+                            <th
+                                key={index}
+                                style={{ width: columnWidth }}
+                                className="p-2"
+                            >
+                                {header}
+                            </th>
                         ))}
+                        <th style={{ width: columnWidth }} className="p-2"></th>
+                        <th style={{ width: columnWidth }} className="p-2"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {rows.map((row, rowIndex) => (
                         <tr
                             key={rowIndex}
-                            className="even:bg-gray-200 border-b border-black p-2 h-15"
+                            className="even:bg-gray-200 border-b border-black h-15"
                         >
                             {row.map((cell, cellIndex) => (
-                                <td key={cellIndex}>{cell}</td>
+                                <td
+                                    key={cellIndex}
+                                    style={{ width: columnWidth }}
+                                    className="p-2"
+                                >
+                                    {cell}
+                                </td>
                             ))}
-                            <td className="w-1/5">
+                            <td
+                                style={{ width: columnWidth }}
+                                className="p-2 text-center"
+                            >
                                 <Button
                                     label="Check proof"
                                     onClick={() => showModalProof(true)}
+                                    width="95/100"
                                 />
                             </td>
-                            <td className="w-1/5 text-center">
+                            <td
+                                style={{ width: columnWidth }}
+                                className="p-2 text-center"
+                            >
                                 <Button
                                     label="Sponsor"
                                     onClick={() => showModalSponsor(true)}
+                                    width="95/100"
                                 />
                             </td>
                         </tr>

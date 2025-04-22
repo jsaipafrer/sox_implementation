@@ -1,48 +1,59 @@
 "use client";
 
 import Button from "./Button";
-import { useState } from "react";
-import Modal from "./Modal";
+import { useEffect, useState } from "react";
 import SponsorModal from "./SponsorModal";
 
-export type ListViewProps = {
-    title: string;
-    headers: string[];
-    rows: string[][];
+type Contract = {
+    id: number;
+    pk_buyer: string;
+    pk_vendor: string;
+    item_description: string;
+    tip_completion: number;
+    tip_dispute: number;
+    protocol_version: string;
+    timeout_delay: number;
+    algorithm_suite: string;
 };
 
-export default function ContractsListView({
-    title,
-    headers,
-    rows,
-}: ListViewProps) {
+export default function ContractsListView() {
     const [modalShown, showModal] = useState(false);
+    const [contracts, setContracts] = useState<Contract[]>([]);
+
+    useEffect(() => {
+        fetch("/api/contracts")
+            .then((res) => res.json())
+            .then((data) => setContracts(data));
+    }, []);
 
     return (
         <div className="bg-gray-300 p-4 rounded w-1/2 overflow-auto">
-            <h2 className="text-lg font-semibold mb-4">{title}</h2>
-            <table className="w-full border-collapse">
+            <h2 className="text-lg font-semibold mb-4">Contracts</h2>
+            <table className="w-full table-fixed border-collapse">
                 <thead>
-                    <tr className="border-b border-black p-2 text-left font-medium">
-                        {headers.map((header, index) => (
-                            <th key={index}>{header}</th>
-                        ))}
-                        <th></th>
+                    <tr className="border-b border-black text-left font-medium">
+                        <th className="p-2 w-1/5">ID</th>
+                        <th className="p-2 w-1/5">Item description</th>
+                        <th className="p-2 w-1/5">Completion tip</th>
+                        <th className="p-2 w-1/5">Timeout delay</th>
+                        <th className="p-2 w-1/5"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map((row, rowIndex) => (
+                    {contracts.map((c, i) => (
                         <tr
-                            key={rowIndex}
-                            className="even:bg-gray-200 border-b border-black p-2 h-15"
+                            key={i}
+                            className="even:bg-gray-200 border-b border-black h-15"
                         >
-                            {row.map((cell, cellIndex) => (
-                                <td key={cellIndex}>{cell}</td>
-                            ))}
-                            <td className="w-1/5 text-center">
+                            <td className="p-2 w-1/5">{c.id}</td>
+                            <td className="p-2 w-1/5">{c.item_description}</td>
+                            <td className="p-2 w-1/5">{c.tip_completion}</td>
+                            <td className="p-2 w-1/5">{c.timeout_delay}</td>
+                            <td className="p-2 w-1/5 text-center">
                                 <Button
                                     label="Sponsor"
                                     onClick={() => showModal(true)}
+                                    width="95/100"
                                 />
                             </td>
                         </tr>
