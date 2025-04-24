@@ -19,12 +19,43 @@ type Contract = {
 export default function ContractsListView() {
     const [modalShown, showModal] = useState(false);
     const [contracts, setContracts] = useState<Contract[]>([]);
+    const [selectedContract, setSelectedContract] = useState(-1);
 
-    useEffect(() => {
-        fetch("/api/contracts")
+    const fetchContracts = () => {
+        fetch("/api/unsponsored-contracts")
             .then((res) => res.json())
             .then((data) => setContracts(data));
+    };
+
+    useEffect(() => {
+        fetchContracts();
+
+        // Listen for the reloadData event
+        const handleReloadData = () => {
+            fetchContracts();
+        };
+
+        window.addEventListener("reloadData", handleReloadData);
+
+        // Clean up the event listener on component unmount
+        return () => {
+            window.removeEventListener("reloadData", handleReloadData);
+        };
     }, []);
+
+    const handleSponsorConfirmation = async (pkSponsor: string) => {
+        await fetch("/api/unsponsored-contracts", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                id: selectedContract,
+                pkSponsor,
+            }),
+        });
+        alert(`Sponsored contract ${selectedContract}`);
+    };
 
     return (
         <div className="bg-gray-300 p-4 rounded w-1/2 overflow-auto">
@@ -42,7 +73,7 @@ export default function ContractsListView() {
                 <tbody>
                     {contracts.map((c, i) => (
                         <tr
-                            key={i}
+                            key={c.id}
                             className="even:bg-gray-200 border-b border-black h-15"
                         >
                             <td className="p-2 w-1/5">{c.id}</td>
@@ -52,7 +83,10 @@ export default function ContractsListView() {
                             <td className="p-2 w-1/5 text-center">
                                 <Button
                                     label="Sponsor"
-                                    onClick={() => showModal(true)}
+                                    onClick={() => {
+                                        setSelectedContract(c.id);
+                                        showModal(true);
+                                    }}
                                     width="95/100"
                                 />
                             </td>
@@ -65,6 +99,7 @@ export default function ContractsListView() {
                 <SponsorModal
                     title="Sponsor contract"
                     onClose={() => showModal(false)}
+                    onConfirm={handleSponsorConfirmation}
                     id_prefix="contract"
                 />
             )}

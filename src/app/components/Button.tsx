@@ -1,6 +1,8 @@
+import { MouseEventHandler } from "react";
+
 type ButtonProps = {
     label: string;
-    onClick: () => void;
+    onClick: MouseEventHandler<HTMLButtonElement>;
     width?: string;
 };
 

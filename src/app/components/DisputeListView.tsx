@@ -1,69 +1,93 @@
 "use client";
 
 import Button from "./Button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import SponsorModal from "./SponsorModal";
 import { sha256 } from "../lib/sha256";
 
-export default function ContractsListView() {
+type Dispute = {
+    contract_id: number;
+    tip_dispute: number;
+    proof_path: string;
+};
+
+export default function DisputeListView() {
     const [modalProofShown, showModalProof] = useState(false);
     const [modalSponsorShown, showModalSponsor] = useState(false);
+    const [disputes, setDisputes] = useState<Dispute[]>([]);
+    const [selectedDispute, setSelectedDispute] = useState(-1);
 
-    const totalColumns = headers.length + 2; // +2 for the two button columns
-    const columnWidth = `${100 / totalColumns}%`;
+    const fetchDisputes = () => {
+        fetch("/api/disputes")
+            .then((res) => res.json())
+            .then((data) => setDisputes(data));
+    };
+
+    useEffect(() => {
+        fetchDisputes();
+
+        // Listen for the reloadData event
+        const handleReloadData = () => {
+            fetchDisputes();
+        };
+
+        window.addEventListener("reloadData", handleReloadData);
+
+        // Clean up the event listener on component unmount
+        return () => {
+            window.removeEventListener("reloadData", handleReloadData);
+        };
+    }, []);
+
+    const handleSponsorConfirmation = async (pk: string) => {
+        await fetch("/api/disputes/register-sponsor", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                contract_id: selectedDispute,
+                pk_sponsor: pk,
+            }),
+        });
+        alert(`Sponsored dispute ${selectedDispute}`);
+    };
 
     return (
         <div className="bg-gray-300 p-4 rounded w-1/2 overflow-auto">
-            <h2 className="text-lg font-semibold mb-4">{title}</h2>
+            <h2 className="text-lg font-semibold mb-4">Disputes</h2>
             <table className="w-full table-fixed border-collapse">
                 <thead>
                     <tr className="border-b border-black text-left font-medium">
-                        {headers.map((header, index) => (
-                            <th
-                                key={index}
-                                style={{ width: columnWidth }}
-                                className="p-2"
-                            >
-                                {header}
-                            </th>
-                        ))}
-                        <th style={{ width: columnWidth }} className="p-2"></th>
-                        <th style={{ width: columnWidth }} className="p-2"></th>
+                        <th className="p-2 w-1/4">Contract ID</th>
+                        <th className="p-2 w-1/4">Tip</th>
+                        <th className="p-2 w-1/4"></th>
+                        <th className="p-2 w-1/4"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map((row, rowIndex) => (
+                    {disputes.map((d) => (
                         <tr
-                            key={rowIndex}
+                            key={d.contract_id}
                             className="even:bg-gray-200 border-b border-black h-15"
                         >
-                            {row.map((cell, cellIndex) => (
-                                <td
-                                    key={cellIndex}
-                                    style={{ width: columnWidth }}
-                                    className="p-2"
-                                >
-                                    {cell}
-                                </td>
-                            ))}
-                            <td
-                                style={{ width: columnWidth }}
-                                className="p-2 text-center"
-                            >
+                            <td className="p-2 w-1/4">{d.contract_id}</td>
+                            <td className="p-2 w-1/4">{d.tip_dispute}</td>
+                            <td className="p-2 text-center w-1/4">
                                 <Button
                                     label="Check proof"
                                     onClick={() => showModalProof(true)}
                                     width="95/100"
                                 />
                             </td>
-                            <td
-                                style={{ width: columnWidth }}
-                                className="p-2 text-center"
-                            >
+                            <td className="p-2 text-center w-1/4">
                                 <Button
                                     label="Sponsor"
-                                    onClick={() => showModalSponsor(true)}
+                                    onClick={() => {
+                                        setSelectedDispute(d.contract_id);
+                                        showModalSponsor(true);
+                                    }}
                                     width="95/100"
                                 />
                             </td>
@@ -81,6 +105,7 @@ export default function ContractsListView() {
                         <Button
                             label="Check here"
                             onClick={() => {
+                                // TODO
                                 let content =
                                     document.getElementById(
                                         "proof_check_result"
@@ -114,6 +139,7 @@ export default function ContractsListView() {
                 <SponsorModal
                     title="Sponsor dispute"
                     onClose={() => showModalSponsor(false)}
+                    onConfirm={handleSponsorConfirmation}
                     id_prefix="dispute"
                 />
             )}

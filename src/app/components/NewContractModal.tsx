@@ -26,13 +26,35 @@ export default function NewContractModal({
     const [algorithms, setAlgorithms] = useState("default");
 
     const handleSubmit = () => {
-        alert("submitted");
+        let data = {
+            pk_buyer: buyerPk,
+            pk_vendor: vendorPk,
+            item_description: itemDescription,
+            price: price,
+            tip_completion: tipCompletion,
+            tip_dispute: tipDispute,
+            protocol_version: version,
+            timeout_delay: timeoutDelay,
+            algorithm_suite: algorithms,
+        };
+        fetch("/api/precontracts", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data),
+        })
+            .then((res) => res.json())
+            .then((data) =>
+                alert(`Added new contract, it has the ID ${data.id}`)
+            );
+        window.dispatchEvent(new Event("reloadData"));
         onClose();
     };
 
     return (
         <Modal title={title} onClose={onClose}>
-            <form className="space-y-4">
+            <div className="space-y-4 grid grid-cols-2 gap-4">
                 <FormTextField
                     id="buyer-pk"
                     type="text"
@@ -71,7 +93,7 @@ export default function NewContractModal({
 
                 <FormTextField
                     id="tip-completion"
-                    type="text"
+                    type="number"
                     value={tipCompletion}
                     onChange={setTipCompletion}
                 >
@@ -80,7 +102,7 @@ export default function NewContractModal({
 
                 <FormTextField
                     id="tip-dispute"
-                    type="text"
+                    type="number"
                     value={tipDispute}
                     onChange={setTipDispute}
                 >
@@ -89,7 +111,7 @@ export default function NewContractModal({
 
                 <FormTextField
                     id="timeout-delay"
-                    type="text"
+                    type="number"
                     value={timeoutDelay}
                     onChange={setTimeoutDelay}
                 >
@@ -101,6 +123,7 @@ export default function NewContractModal({
                     value={algorithms}
                     onChange={setAlgorithms}
                     options={["default"]}
+                    disabled
                 >
                     Algorithm suite
                 </FormSelect>
@@ -115,11 +138,11 @@ export default function NewContractModal({
                     Circuit version
                 </FormSelect>
 
-                <div className="flex gap-8">
+                <div className="col-span-2 flex gap-8">
                     <Button label="Submit" onClick={handleSubmit} width="1/2" />
                     <Button label="Cancel" onClick={onClose} width="1/2" />
                 </div>
-            </form>
+            </div>
         </Modal>
     );
 }

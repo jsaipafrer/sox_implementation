@@ -3,12 +3,24 @@ DROP TABLE IF EXISTS disputes;
 
 CREATE TABLE contracts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pk_buyer TEXT,
-    pk_vendor TEXT,
-    item_description TEXT,
-    tip_completion NUMBER,
-    tip_dispute NUMBER,
-    protocol_version TEXT,
-    timeout_delay NUMBER,
-    algorithm_suite TEXT
-)
+    pk_buyer TEXT NOT NULL,
+    pk_vendor TEXT NOT NULL,
+    item_description TEXT NOT NULL,
+    price REAL NOT NULL,
+    tip_completion REAL NOT NULL,
+    tip_dispute REAL NOT NULL,
+    protocol_version TEXT NOT NULL,
+    timeout_delay REAL NOT NULL,
+    algorithm_suite TEXT NOT NULL,
+    accepted NUMBER NOT NULL,
+    sponsor TEXT -- can be null while the sponsor hasn't been found
+);
+
+CREATE TABLE disputes (
+    contract_id INTEGER UNIQUE NOT NULL,
+    pk_buyer_sponsor TEXT,
+    pk_vendor_sponsor TEXT,
+    buyer_proof_path TEXT, -- no need to store it directly here, it's easier to have a path to it
+    vendor_proof_path TEXT,
+    FOREIGN KEY(contract_id) REFERENCES contracts(id)
+);

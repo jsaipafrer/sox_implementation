@@ -7,12 +7,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import NewContractModal from "./components/NewContractModal";
 import NewDisputeModal from "./components/NewDisputeModal";
+import SearchContractModal from "./components/SearchContractModal";
 
 export default function Home() {
     const router = useRouter();
 
     const [modalNewContractShown, showModalNewContract] = useState(false);
     const [modalNewDisputeShown, showModalNewDispute] = useState(false);
+    const [modalSearchContractShown, showModalSearchContract] = useState(false);
 
     return (
         <main className="p-4 min-h-screen">
@@ -24,8 +26,8 @@ export default function Home() {
                     onClick={() => showModalNewContract(true)}
                 />
                 <Button
-                    label="+ un autre truc"
-                    onClick={() => showModalNewContract(true)}
+                    label="Search pre-contract"
+                    onClick={() => showModalSearchContract(true)}
                 />
                 <Button
                     label="+ New dispute"
@@ -35,7 +37,16 @@ export default function Home() {
 
             <div className="flex gap-8 mt-8">
                 <ContractsListView />
-                {/* <DisputeListView /> */}
+                <DisputeListView />
+            </div>
+
+            <div className="mt-8">
+                <Button
+                    label="Reload data"
+                    onClick={() =>
+                        window.dispatchEvent(new Event("reloadData"))
+                    }
+                />
             </div>
 
             {modalNewContractShown && (
@@ -43,6 +54,13 @@ export default function Home() {
                     title="New contract"
                     onClose={() => showModalNewContract(false)}
                 ></NewContractModal>
+            )}
+
+            {modalSearchContractShown && (
+                <SearchContractModal
+                    title="Search contract"
+                    onClose={() => showModalSearchContract(false)}
+                ></SearchContractModal>
             )}
 
             {modalNewDisputeShown && (

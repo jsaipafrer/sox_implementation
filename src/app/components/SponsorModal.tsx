@@ -1,33 +1,32 @@
-import { ReactNode, useEffect } from "react";
+import { useState } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
 
 interface SponsorModalProps {
     title: string;
     onClose: () => void;
+    onConfirm: (pk: string) => void;
     id_prefix: string;
 }
 
 export default function SponsorModal({
-    onClose,
     title,
+    onClose,
+    onConfirm,
     id_prefix,
 }: SponsorModalProps) {
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                onClose();
-            }
-        };
+    const [pkSponsor, setPkSponsor] = useState("");
 
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [onClose]);
+    const onClick = () => {
+        onConfirm(pkSponsor);
+        window.dispatchEvent(new Event("reloadData"));
+        onClose();
+    };
 
     return (
         <Modal onClose={onClose} title={title}>
-            <form action="">
-                <table className="w-1/1 border-spacing-y-3 border-separate">
+            <div>
+                <table className="w-1/1 border-spacing-y-3 border-spacing-x-4 border-separate">
                     <tbody>
                         <tr className="w-1/1">
                             <td className="w-1/2">
@@ -40,6 +39,9 @@ export default function SponsorModal({
                                     type="text"
                                     name={`${id_prefix}-sponsor-pk`}
                                     id={`${id_prefix}-sponsor-pk`}
+                                    onChange={(e) =>
+                                        setPkSponsor(e.target.value)
+                                    }
                                     className="bg-white w-full border rounded"
                                 />
                             </td>
@@ -59,15 +61,9 @@ export default function SponsorModal({
                                 />
                             </td>
                         </tr>
-                        <tr className="text-center">
+                        <tr className="text-center gap-8">
                             <td>
-                                <Button
-                                    label="Confirm"
-                                    onClick={() => {
-                                        alert("sponsored!");
-                                        onClose();
-                                    }}
-                                />
+                                <Button label="Confirm" onClick={onClick} />
                             </td>
                             <td>
                                 <Button label="Cancel" onClick={onClose} />
@@ -75,7 +71,7 @@ export default function SponsorModal({
                         </tr>
                     </tbody>
                 </table>
-            </form>
+            </div>
         </Modal>
     );
 }

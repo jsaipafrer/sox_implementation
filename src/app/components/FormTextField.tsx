@@ -8,7 +8,7 @@ interface FormTextFieldProps {
 
 export default function FormTextField({
     id,
-    children,
+    children: label,
     type,
     value,
     onChange,
@@ -16,7 +16,7 @@ export default function FormTextField({
     return (
         <div>
             <label className="block mb-1 font-medium" htmlFor={id}>
-                {children}
+                {label}
             </label>
             <input
                 name={id}
