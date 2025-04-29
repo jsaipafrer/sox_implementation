@@ -132,7 +132,7 @@ export default function NewContractModal({
                     id="circuit-version"
                     value={version}
                     onChange={setVersion}
-                    options={["0.1"]}
+                    options={["0"]}
                     disabled
                 >
                     Circuit version

@@ -7,7 +7,7 @@ export async function GET(
 ) {
     const { id } = await params;
     const stmt = db.prepare(
-        `SELECT * FROM contracts WHERE id = ? AND accepted = 0 AND sponsor IS NULL;`
+        `SELECT * FROM contracts WHERE id = ? AND accepted = 0`
     );
     const results = stmt.all(id);
 

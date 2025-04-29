@@ -20,6 +20,15 @@ export default function Home() {
         <main className="p-4 min-h-screen">
             <h1 className="text-xl font-bold mb-4">Sponsored fair exchange</h1>
 
+            <div className="mb-8">
+                <Button
+                    label="Reload data"
+                    onClick={() =>
+                        window.dispatchEvent(new Event("reloadData"))
+                    }
+                />
+            </div>
+
             <div className="flex gap-8 justify-between items-center">
                 <Button
                     label="+ New pre-contract"
@@ -35,17 +44,23 @@ export default function Home() {
                 />
             </div>
 
-            <div className="flex gap-8 mt-8">
+            <div className="flex gap-8 my-8">
                 <ContractsListView />
                 <DisputeListView />
             </div>
 
-            <div className="mt-8">
+            <div className="flex gap-8 justify-between items-center">
                 <Button
-                    label="Reload data"
-                    onClick={() =>
-                        window.dispatchEvent(new Event("reloadData"))
-                    }
+                    label="Compile circuit"
+                    onClick={() => showModalNewContract(true)}
+                />
+                <Button
+                    label="Search pre-contract"
+                    onClick={() => showModalSearchContract(true)}
+                />
+                <Button
+                    label="+ New dispute"
+                    onClick={() => showModalNewDispute(true)}
                 />
             </div>
 

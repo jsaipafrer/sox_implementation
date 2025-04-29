@@ -1,6 +1,9 @@
+import { bytesToHex } from "../helpers";
+
 // SHA-256 implementation
 const BLOCK_SIZE = 64; // in bytes
 const WORD_SIZE = 4; // in bytes
+const DIGEST_SIZE = 32; // in bytes
 
 type Byte = number;
 type Block = [
@@ -73,18 +76,15 @@ type Block = [
 type Word = number;
 type Digest = [Word, Word, Word, Word, Word, Word, Word, Word];
 
-function bytesToWord(bytes: Byte[]): Word {
-    if (bytes.length >= 4) {
+function bytesToWord(bytes: ArrayLike<number>): Word {
+    if (bytes.length >= 4)
         return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
-    }
-
-    let res: Word = 0;
-
-    for (let i = 0; i > bytes.length; ++i) {
-        res |= bytes[i] << ((3 - i) * 8);
-    }
-
-    return res >>> 0;
+    else if (bytes.length == 3)
+        return (bytes[0] << 16) | (bytes[1] << 8) | bytes[2];
+    else if (bytes.length == 2)
+        return (bytes[0] << 8) | bytes[1] | (bytes[2] << 8) | bytes[3];
+    else if (bytes.length == 1) return bytes[0];
+    else return 0;
 }
 
 function blockToWords(block: Block): Word[] {
@@ -149,7 +149,7 @@ const K: Word[] = [
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ];
 
-export function sha256Compression(H: Digest, block: Block): Digest {
+function internalCompression(H: Digest, block: Block): Digest {
     let w = new Array(64) as Word[];
     let blockWords = blockToWords(block);
 
@@ -202,7 +202,7 @@ export function sha256Compression(H: Digest, block: Block): Digest {
     return H;
 }
 
-export function sha256(msg: string): [Digest, string] {
+function internalSHA256(msg: string): [Digest, string] {
     let H: Digest = [
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
         0x1f83d9ab, 0x5be0cd19,
@@ -213,7 +213,7 @@ export function sha256(msg: string): [Digest, string] {
 
     for (let block of paddedMessage) {
         // Davies-Meyer construction is whole compression function in this case
-        H = sha256Compression(H, block);
+        H = internalCompression(H, block);
     }
 
     let digestHex: string = "";
@@ -223,4 +223,81 @@ export function sha256(msg: string): [Digest, string] {
     }
 
     return [H, digestHex];
+}
+
+function bytesToDigest(bytes: Uint8Array): Digest {
+    // pad the received bytes to have the size of a digest
+    let paddedBytes = Array.from(bytes);
+    while (paddedBytes.length < DIGEST_SIZE) paddedBytes.unshift(0);
+    paddedBytes = paddedBytes.slice(0, DIGEST_SIZE); // in case input is bigger than digest size
+
+    let res: number[] = [];
+
+    for (let i = 0; i < DIGEST_SIZE / WORD_SIZE; ++i) {
+        const nextWord = paddedBytes.slice(WORD_SIZE * i, WORD_SIZE * (i + 1));
+
+        res.push(bytesToWord(nextWord));
+    }
+
+    return res as Digest;
+}
+
+function bytesToBlock(bytes: Uint8Array): Block {
+    // pad the received bytes to have the size of a block
+    let res = Array.from(bytes);
+    while (res.length < BLOCK_SIZE) res.unshift(0);
+    res = res.slice(0, BLOCK_SIZE); // in case input is bigger than block size
+
+    return res as Block;
+}
+
+function digestToBytes(digest: Digest): Uint8Array {
+    let res = [];
+
+    for (let w of digest) {
+        res.unshift(...wordToBytes(w));
+    }
+
+    return new Uint8Array(res);
+}
+
+function wordToBytes(word: Word): Uint8Array {
+    let res: number[] = [];
+
+    while (word > 0) {
+        res.unshift(word & 0xff); // word & 0xff is the LSB
+        word >>>= 8;
+    }
+
+    return new Uint8Array(res);
+}
+
+export async function sha256Compression(
+    key: Uint8Array,
+    data: Uint8Array[]
+): Promise<Uint8Array> {
+    const previousDigestBytes = data[0];
+    const nextBlockBytes = data[1];
+
+    if (previousDigestBytes.length < DIGEST_SIZE)
+        throw new Error("First data element must be a digest");
+
+    if (nextBlockBytes.length < BLOCK_SIZE)
+        throw new Error("Second data element must be a data block of 512 bits");
+
+    const digest = internalCompression(
+        bytesToDigest(previousDigestBytes),
+        bytesToBlock(nextBlockBytes)
+    );
+
+    return digestToBytes(digest);
+}
+
+export async function sha256(
+    key: Uint8Array,
+    data: Uint8Array[]
+): Promise<Uint8Array> {
+    const [digest] = internalSHA256(bytesToHex(data[0]));
+
+    return digestToBytes(digest);
 }

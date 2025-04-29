@@ -1,3 +1,5 @@
+import { hexToBytes, bytesToHex } from "../helpers";
+
 interface Cipher {
     iv: string;
     ct: string;
@@ -7,34 +9,6 @@ const POSSIBLE_KEY_SIZES = [16, 24, 32]; // in bytes
 const IV_SIZE = 16;
 const COUNTER_SIZE = 64; // in bits, see https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams
 const ALGORITHM = "AES-CTR";
-
-function hexToBytes(hex: string): Uint8Array {
-    if (hex.length % 2 != 0) {
-        throw Error("input must have an even number of characters");
-    }
-
-    let res = new Uint8Array(hex.length / 2);
-
-    for (let i = 0; i < hex.length; i += 2) {
-        res[i / 2] = parseInt(hex.substring(i, i + 2), 16);
-    }
-
-    return res;
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-    let res = "";
-
-    for (let i = 0; i < bytes.length; ++i) {
-        let next = bytes[i].toString(16);
-        if (bytes[i] < 0x10) {
-            next = "0" + next;
-        }
-        res += next;
-    }
-
-    return res;
-}
 
 export async function generateKey(): Promise<Uint8Array> {
     let key = await crypto.subtle.generateKey(
@@ -56,7 +30,7 @@ export async function convertKey(key: Uint8Array): Promise<CryptoKey> {
     ]);
 }
 
-export async function encrypt(
+async function internalEncrypt(
     data: Uint8Array,
     key: Uint8Array,
     iv?: Uint8Array
@@ -87,7 +61,7 @@ export async function encrypt(
     };
 }
 
-export async function decrypt(
+async function internalDecrypt(
     data: Cipher,
     key: Uint8Array
 ): Promise<Uint8Array> {
@@ -105,4 +79,40 @@ export async function decrypt(
     );
 
     return new Uint8Array(decrypted);
+}
+
+function combineUint8Arrays(arrays: Uint8Array[]): Uint8Array {
+    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+    const res = new Uint8Array(totalLength);
+
+    let offset = 0;
+    for (const arr of arrays) {
+        res.set(arr, offset);
+        offset += arr.length;
+    }
+
+    return res;
+}
+
+export async function encryptBlock(
+    key: Uint8Array,
+    data: Uint8Array[]
+): Promise<Uint8Array> {
+    // TODO how to manage IV
+    const block = combineUint8Arrays(data);
+    const cipher = await internalEncrypt(block, key, new Uint8Array([0]));
+    return hexToBytes(cipher.ct);
+}
+
+export async function decryptBlock(
+    key: Uint8Array,
+    data: Uint8Array[]
+): Promise<Uint8Array> {
+    const block = combineUint8Arrays(data);
+    const cipher = {
+        ct: bytesToHex(block),
+        iv: "0", // TODO manage iv
+    };
+
+    return await internalDecrypt(cipher, key);
 }

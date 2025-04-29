@@ -4,7 +4,7 @@ import Button from "./Button";
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import SponsorModal from "./SponsorModal";
-import { sha256 } from "../lib/sha256";
+import { sha256 } from "../lib/circuits/components/sha256";
 
 type Dispute = {
     contract_id: number;

@@ -9,7 +9,7 @@ CREATE TABLE contracts (
     price REAL NOT NULL,
     tip_completion REAL NOT NULL,
     tip_dispute REAL NOT NULL,
-    protocol_version TEXT NOT NULL,
+    protocol_version NUMBER NOT NULL,
     timeout_delay REAL NOT NULL,
     algorithm_suite TEXT NOT NULL,
     accepted NUMBER NOT NULL,
@@ -22,5 +22,8 @@ CREATE TABLE disputes (
     pk_vendor_sponsor TEXT,
     buyer_proof_path TEXT, -- no need to store it directly here, it's easier to have a path to it
     vendor_proof_path TEXT,
-    FOREIGN KEY(contract_id) REFERENCES contracts(id)
+    CONSTRAINT fk_contract_id
+        FOREIGN KEY (contract_id) 
+        REFERENCES contracts(id)
+        ON DELETE CASCADE
 );

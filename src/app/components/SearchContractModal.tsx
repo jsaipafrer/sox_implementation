@@ -45,9 +45,17 @@ export default function SearchContractModal({
         onClose();
     };
 
-    const handleReject = (id: string) => {
-        // TODO: implement reject logic
+    const handleReject = async (id: string) => {
+        await fetch("/api/precontracts/reject", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ id }),
+        });
+        window.dispatchEvent(new Event("reloadData"));
         alert(`Rejected contract ${id}`);
+        onClose();
     };
 
     useEffect(() => {
