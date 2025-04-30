@@ -6,72 +6,17 @@ const WORD_SIZE = 4; // in bytes
 const DIGEST_SIZE = 32; // in bytes
 
 type Byte = number;
+// prettier-ignore
 type Block = [
     // 64 bytes
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte,
-    Byte
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
+    Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte
 ];
 type Word = number;
 type Digest = [Word, Word, Word, Word, Word, Word, Word, Word];
@@ -81,8 +26,7 @@ function bytesToWord(bytes: ArrayLike<number>): Word {
         return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
     else if (bytes.length == 3)
         return (bytes[0] << 16) | (bytes[1] << 8) | bytes[2];
-    else if (bytes.length == 2)
-        return (bytes[0] << 8) | bytes[1] | (bytes[2] << 8) | bytes[3];
+    else if (bytes.length == 2) return (bytes[0] << 8) | bytes[1];
     else if (bytes.length == 1) return bytes[0];
     else return 0;
 }
@@ -101,35 +45,35 @@ function ror(w: Word, n: number): Word {
     return ((w >>> n) | (w << (32 - n))) >>> 0;
 }
 
-function padMessage(message: Byte[]): Block[] {
-    const len = message.length;
-    const lenBits = len * 8;
+function padMessage(message: ArrayLike<number>): Block[] {
+    const lenBits = message.length * 8;
 
-    message.push(0x80);
+    let paddedMsg = Array.from(message);
+    paddedMsg.push(0x80);
 
-    while ((message.length * 8) % 512 !== 448) {
-        message.push(0x00);
+    while ((paddedMsg.length * 8) % 512 !== 448) {
+        paddedMsg.push(0x00);
     }
 
     const lenHi = Math.floor(lenBits / Math.pow(2, 32));
     const lenLo = lenBits >>> 0;
     for (let i = 0; i < 4; ++i) {
-        message.push((lenHi >>> ((3 - i) * 8)) & 0xff);
+        paddedMsg.push((lenHi >>> ((3 - i) * 8)) & 0xff);
     }
 
     for (let i = 0; i < 4; ++i) {
-        message.push((lenLo >>> ((3 - i) * 8)) & 0xff);
+        paddedMsg.push((lenLo >>> ((3 - i) * 8)) & 0xff);
     }
 
-    if (message.length % BLOCK_SIZE != 0) {
+    if (paddedMsg.length % BLOCK_SIZE != 0) {
         throw new Error("something went wrong during the padding...");
     }
 
-    let res = new Array(message.length / BLOCK_SIZE) as Block[];
+    let res = new Array(paddedMsg.length / BLOCK_SIZE);
     for (let i = 0; i < res.length; ++i) {
         res[i] = new Array(BLOCK_SIZE) as Block;
         for (let j = 0; j < BLOCK_SIZE; ++j)
-            res[i][j] = message[BLOCK_SIZE * i + j];
+            res[i][j] = paddedMsg[BLOCK_SIZE * i + j];
     }
 
     return res;
@@ -149,7 +93,13 @@ const K: Word[] = [
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ];
 
-function internalCompression(H: Digest, block: Block): Digest {
+const BASE_H: Digest = [
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
+    0x1f83d9ab, 0x5be0cd19,
+];
+
+function internalCompression(previousDigest: Digest, block: Block): Digest {
+    let H = Array.from(previousDigest) as Digest; // make a copy
     let w = new Array(64) as Word[];
     let blockWords = blockToWords(block);
 
@@ -203,26 +153,17 @@ function internalCompression(H: Digest, block: Block): Digest {
 }
 
 function internalSHA256(msg: string): [Digest, string] {
-    let H: Digest = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
-        0x1f83d9ab, 0x5be0cd19,
-    ];
+    let H = BASE_H;
 
     let msgBytes: Byte[] = Array.from(new TextEncoder().encode(msg));
     let paddedMessage = padMessage(msgBytes);
 
     for (let block of paddedMessage) {
-        // Davies-Meyer construction is whole compression function in this case
+        // for our use, the entire Davies-Meyer construction is the compression function
         H = internalCompression(H, block);
     }
 
-    let digestHex: string = "";
-
-    for (let val of H) {
-        digestHex += val.toString(16).padStart(8, "0");
-    }
-
-    return [H, digestHex];
+    return [H, bytesToHex(digestToBytes(H))];
 }
 
 function bytesToDigest(bytes: Uint8Array): Digest {
@@ -255,7 +196,7 @@ function digestToBytes(digest: Digest): Uint8Array {
     let res = [];
 
     for (let w of digest) {
-        res.unshift(...wordToBytes(w));
+        res.push(...wordToBytes(w));
     }
 
     return new Uint8Array(res);
@@ -265,7 +206,7 @@ function wordToBytes(word: Word): Uint8Array {
     let res: number[] = [];
 
     while (word > 0) {
-        res.unshift(word & 0xff); // word & 0xff is the LSB
+        res.unshift(word & 0xff); // word & 0xff == LSByte(word)
         word >>>= 8;
     }
 
@@ -276,18 +217,13 @@ export async function sha256Compression(
     key: Uint8Array,
     data: Uint8Array[]
 ): Promise<Uint8Array> {
-    const previousDigestBytes = data[0];
-    const nextBlockBytes = data[1];
-
-    if (previousDigestBytes.length < DIGEST_SIZE)
-        throw new Error("First data element must be a digest");
-
-    if (nextBlockBytes.length < BLOCK_SIZE)
-        throw new Error("Second data element must be a data block of 512 bits");
+    const nextBlock = data.slice(-1)[0];
+    const paddedBlock = Array.from(nextBlock.slice(0, BLOCK_SIZE));
+    while (paddedBlock.length < BLOCK_SIZE) paddedBlock.push(0);
 
     const digest = internalCompression(
-        bytesToDigest(previousDigestBytes),
-        bytesToBlock(nextBlockBytes)
+        data.length > 1 ? bytesToDigest(data[0]) : BASE_H, // if no previous digest, use the base
+        paddedBlock as Block
     );
 
     return digestToBytes(digest);

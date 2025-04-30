@@ -49,7 +49,7 @@ export default function Home() {
                 <DisputeListView />
             </div>
 
-            <div className="flex gap-8 justify-between items-center">
+            {/* <div className="flex gap-8 justify-between items-center">
                 <Button
                     label="Compile circuit"
                     onClick={() => showModalNewContract(true)}
@@ -62,7 +62,7 @@ export default function Home() {
                     label="+ New dispute"
                     onClick={() => showModalNewDispute(true)}
                 />
-            </div>
+            </div> */}
 
             {modalNewContractShown && (
                 <NewContractModal

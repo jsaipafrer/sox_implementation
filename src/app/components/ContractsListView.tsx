@@ -78,8 +78,7 @@ export default function ContractsListView() {
                 <thead>
                     <tr className="border-b border-black text-left font-medium">
                         <th className="p-2 w-1/5">ID</th>
-                        <th className="p-2 w-1/5">Item description</th>
-                        <th className="p-2 w-1/5">Completion tip</th>
+                        <th className="p-2 w-1/5">Tip</th>
                         <th className="p-2 w-1/5">Timeout delay</th>
                         <th className="p-2 w-1/5"></th>
                     </tr>
@@ -91,7 +90,6 @@ export default function ContractsListView() {
                             className="even:bg-gray-200 border-b border-black h-15"
                         >
                             <td className="p-2 w-1/5">{c.id}</td>
-                            <td className="p-2 w-1/5">{c.item_description}</td>
                             <td className="p-2 w-1/5">{c.tip_completion}</td>
                             <td className="p-2 w-1/5">{c.timeout_delay}</td>
                             <td className="p-2 w-1/5 text-center">
