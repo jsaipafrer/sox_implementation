@@ -115,7 +115,7 @@ export default function NewContractModal({
                     value={timeoutDelay}
                     onChange={setTimeoutDelay}
                 >
-                    Timeout delay
+                    Timeout delay (s)
                 </FormTextField>
 
                 <FormSelect

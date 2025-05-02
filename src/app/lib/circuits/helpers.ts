@@ -1,4 +1,5 @@
 export function hexToBytes(hex: string): Uint8Array {
+    if (hex[1] == "x") hex = hex.slice(2);
     if (hex.length % 2 != 0) {
         throw Error("input must have an even number of characters");
     }

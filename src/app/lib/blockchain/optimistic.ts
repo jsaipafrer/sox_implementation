@@ -22,5 +22,5 @@ export async function deployOptimisticContract(
         hash: tx_hash,
     });
 
-    return tx.contractAddress;
+    return tx.contractAddress!;
 }

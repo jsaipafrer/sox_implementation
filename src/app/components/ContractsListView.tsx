@@ -67,7 +67,7 @@ export default function ContractsListView() {
         setIsDeploying(false);
         alert(
             `Sponsored contract ${selectedContract}!
-    Deployed contract with address ${contractAddress}`
+Deployed contract at address ${contractAddress}`
         );
     };
 

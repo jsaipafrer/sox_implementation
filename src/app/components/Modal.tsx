@@ -14,8 +14,19 @@ export default function Modal({ onClose, title, children }: ModalProps) {
             }
         };
 
+        const handleBackgroundClick = (e: MouseEvent) => {
+            if ((e.target as HTMLElement).classList.contains("fixed")) {
+                onClose();
+            }
+        };
+
         window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
+        document.addEventListener("click", handleBackgroundClick);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            document.removeEventListener("click", handleBackgroundClick);
+        };
     }, [onClose]);
 
     return (
