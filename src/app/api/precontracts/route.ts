@@ -7,9 +7,9 @@ export async function PUT(req: Request) {
         pk_buyer, pk_vendor, item_description, price,
         tip_completion, tip_dispute,
         protocol_version, timeout_delay, algorithm_suite,
-        accepted
+        commitment, key, accepted
     ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, 0
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0
     );`);
     const result = stmt.run(
         data.pk_buyer,
@@ -20,7 +20,9 @@ export async function PUT(req: Request) {
         data.tip_dispute,
         data.protocol_version,
         data.timeout_delay,
-        data.algorithm_suite
+        data.algorithm_suite,
+        data.commitment,
+        data.key
     );
     return NextResponse.json({ id: result.lastInsertRowid });
 }

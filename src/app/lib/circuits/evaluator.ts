@@ -1,9 +1,10 @@
 import { sha256Compression } from "./components/sha256";
 import { encryptBlock, decryptBlock } from "./components/aes-ctr";
 import { bytesToHex, verifyAuthorization } from "viem/utils";
+import { bytesArraysAreEqual } from "../helpers";
 
 export type Gate = [number, number[]]; // [operationId, sons]
-type Circuit = Gate[];
+export type Circuit = Gate[];
 type Instruction = (key: Uint8Array, data: Uint8Array[]) => Promise<Uint8Array>;
 
 const VERSIONS_INSTRUCTIONS: Instruction[][] = [
@@ -14,13 +15,20 @@ async function equals(
     key: Uint8Array,
     data: Uint8Array[]
 ): Promise<Uint8Array> {
-    return new Uint8Array([data[0] === data[1] ? 1 : 0]);
+    return new Uint8Array([bytesArraysAreEqual(data[0], data[1]) ? 1 : 0]);
 }
 
-function getGateSons(gate: Gate, evaluatedCircuit: Uint8Array[]): Uint8Array[] {
+function getGateSons(
+    gate: Gate,
+    evaluatedCircuit: Uint8Array[],
+    constants: Uint8Array[]
+): Uint8Array[] {
     let sons = [];
 
-    for (let s of gate[1]) sons.push(evaluatedCircuit[s]);
+    for (let s of gate[1]) {
+        if (s >= 0) sons.push(evaluatedCircuit[s]);
+        else sons.push(constants[-(s + 1)]);
+    }
 
     return sons;
 }
@@ -30,6 +38,7 @@ export async function evaluateCircuit(
     inputBlockSize: number,
     circuit: Circuit,
     key: Uint8Array,
+    description: Uint8Array,
     version: number
 ): Promise<Uint8Array> {
     if (!(0 <= version && version < VERSIONS_INSTRUCTIONS.length))
@@ -63,10 +72,11 @@ export async function evaluateCircuit(
     evaluatedCircuit.push(input.slice(lastBlockIdx)); // last block
 
     for (const gate of circuit.slice(numBlocks)) {
-        const sons = getGateSons(gate, evaluatedCircuit);
+        const sons = getGateSons(gate, evaluatedCircuit, [description]);
 
         const op = instructions[gate[0]];
-        evaluatedCircuit.push(await op(key, sons));
+        const result = await op(key, sons);
+        evaluatedCircuit.push();
     }
 
     if (evaluatedCircuit.length != circuit.length)
@@ -74,5 +84,5 @@ export async function evaluateCircuit(
             "something wrong happened during the circuit's evaluation"
         );
 
-    return evaluatedCircuit.slice(-1)[0]; // last element
+    return evaluatedCircuit.slice(-1)[0];
 }

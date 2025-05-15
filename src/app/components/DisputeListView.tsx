@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import SponsorModal from "./SponsorModal";
 import { Gate, evaluateCircuit } from "../lib/circuits/evaluator";
-import { bytesToHex } from "../lib/circuits/helpers";
+import { bytesToHex } from "../lib/helpers";
 
 type Dispute = {
     contract_id: number;
@@ -105,7 +105,7 @@ export default function DisputeListView() {
                     <div className="flex gap-8 justify-between items-center">
                         <Button
                             label="Check here"
-                            onClick={() => {
+                            onClick={async () => {
                                 // TODO
                                 const input = new Uint8Array([
                                     76, 111, 114, 101, 109, 32, 105, 112, 115,
@@ -186,6 +186,22 @@ export default function DisputeListView() {
                                         "proof_check_result"
                                     )!.textContent = bytesToHex(res);
                                 });
+                                // Metamask shit, only if time allows
+                                // const client = createWalletClient({
+                                //     chain: anvil,
+                                //     transport: custom(window.ethereum!),
+                                // });
+
+                                // const [address] = await client.getAddresses();
+
+                                // const signature = await client.signMessage({
+                                //     account: address,
+                                //     message: "hello world",
+                                // });
+
+                                // document.getElementById(
+                                //     "proof_check_result"
+                                // )!.textContent = signature;
                             }}
                             width="1/2"
                         />

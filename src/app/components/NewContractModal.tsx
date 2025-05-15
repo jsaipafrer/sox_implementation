@@ -5,6 +5,11 @@ import Modal from "./Modal";
 import Button from "./Button";
 import FormTextField from "./FormTextField";
 import FormSelect from "./FormSelect";
+import FormFileInput from "./FormFileInput";
+import { commitFile } from "../lib/commitment";
+import { bytesToBlocks, bytesToHex } from "../lib/helpers";
+import { encryptFile, generateKey } from "../lib/encryption";
+import { acc } from "../lib/accumulator";
 
 interface NewContractModalProps {
     onClose: () => void;
@@ -21,11 +26,19 @@ export default function NewContractModal({
     const [price, setPrice] = useState("");
     const [tipCompletion, setTipCompletion] = useState("");
     const [tipDispute, setTipDispute] = useState("");
-    const [version, setVersion] = useState("0.1");
+    const [version, setVersion] = useState("0");
     const [timeoutDelay, setTimeoutDelay] = useState("");
     const [algorithms, setAlgorithms] = useState("default");
+    const [file, setFile] = useState<FileList | null>();
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+        const key = await generateKey(16); // 128 bits key
+        const ct = await encryptFile(file!, key, new Uint8Array(16)); // TODO how to handle iv
+        const ctBlocks = bytesToBlocks(ct, 256);
+        const hCt = acc(ctBlocks);
+
+        // const commitment = await commitFile(file!, new Uint8Array(8)); // TODO set key,
+        // const description =
         let data = {
             pk_buyer: buyerPk,
             pk_vendor: vendorPk,
@@ -36,7 +49,11 @@ export default function NewContractModal({
             protocol_version: version,
             timeout_delay: timeoutDelay,
             algorithm_suite: algorithms,
+            // commitment: bytesToHex(commitment, true),
+            // key: bytesToHex(key, true),
         };
+
+        console.log(data);
         fetch("/api/precontracts", {
             method: "PUT",
             headers: {
@@ -73,14 +90,14 @@ export default function NewContractModal({
                     Vendor's public key
                 </FormTextField>
 
-                <FormTextField
+                {/* <FormTextField
                     id="item-description"
                     type="text"
                     value={itemDescription}
                     onChange={setItemDescription}
                 >
                     Item description
-                </FormTextField>
+                </FormTextField> */}
 
                 <FormTextField
                     id="price"
@@ -137,6 +154,10 @@ export default function NewContractModal({
                 >
                     Circuit version
                 </FormSelect>
+
+                <FormFileInput id="sold-file" type="file" onChange={setFile}>
+                    File
+                </FormFileInput>
 
                 <div className="col-span-2 flex gap-8">
                     <Button label="Submit" onClick={handleSubmit} width="1/2" />

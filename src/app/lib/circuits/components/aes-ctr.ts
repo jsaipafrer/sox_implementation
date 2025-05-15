@@ -1,4 +1,4 @@
-import { hexToBytes, bytesToHex } from "../helpers";
+import { hexToBytes, bytesToHex } from "../../helpers";
 
 interface Cipher {
     iv: string;
@@ -98,7 +98,7 @@ export async function encryptBlock(
     key: Uint8Array,
     data: Uint8Array[]
 ): Promise<Uint8Array> {
-    // TODO how to manage IV
+    // TODO how to manage IV (so far we use 0)
     const block = combineUint8Arrays(data);
     const cipher = await internalEncrypt(block, key, new Uint8Array([0]));
     return hexToBytes(cipher.ct);

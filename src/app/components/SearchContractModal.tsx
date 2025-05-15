@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
-import FormTextField from "./FormTextField";
+import FormInput from "./FormTextField";
 
 interface NewContractModalProps {
     onClose: () => void;
@@ -72,14 +72,14 @@ export default function SearchContractModal({
     return (
         <Modal title={title} onClose={onClose}>
             <div className="space-y-4">
-                <FormTextField
+                <FormInput
                     id="search-contract"
                     type="text"
                     value={query}
                     onChange={setQuery}
                 >
                     Contract Number
-                </FormTextField>
+                </FormInput>
                 <Button label="Search" onClick={handleSearch} width="full" />
 
                 {results.length > 0 && (

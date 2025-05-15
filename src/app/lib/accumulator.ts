@@ -1,4 +1,5 @@
 import { concatBytes, keccak256 } from "viem";
+import { bytesArraysAreEqual } from "./helpers";
 
 // Returns an copy of `v` extended/shrinked to 32 elements
 // If extended, is left-padded with 0s
@@ -19,18 +20,6 @@ function hash(v: Uint8Array): Uint8Array {
 // to 32 bytes
 function concatAndHash(left: Uint8Array, right: Uint8Array): Uint8Array {
     return hash(concatBytes([toBytes32(left), toBytes32(right)]));
-}
-
-// Returns true if a and b have equal values
-function bytesArraysAreEqual(a: Uint8Array, b: Uint8Array): boolean {
-    if (a === undefined && b === undefined) return true; // both are undefined/null
-    if (a.length != b.length) return false;
-
-    for (let i = 0; i < a.length; ++i) {
-        if (a[i] != b[i]) return false;
-    }
-
-    return true;
 }
 
 // Returns the Merkle tree representation of the provided values. It is stored as

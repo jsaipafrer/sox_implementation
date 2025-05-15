@@ -188,4 +188,13 @@ contract OptimisticSOX {
     function timeoutHasPassed() public view returns (bool) {
         return block.timestamp > timeout;
     }
+
+    // getters
+    function getState() public view returns (State) {
+        return currState;
+    }
+
+    function getKey() public view returns (bytes32) {
+        return key;
+    }
 }

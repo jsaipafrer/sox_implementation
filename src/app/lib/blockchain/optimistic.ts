@@ -24,3 +24,21 @@ export async function deployOptimisticContract(
 
     return tx.contractAddress!;
 }
+
+export async function getBlockchainContractInfo(contractAddr: `0x${string}`) {
+    const state = await readFromContract(contractAddr, "getState");
+    // const key = await readFromContract(contractAddr, "getKey");
+
+    return {
+        state,
+        // key,
+    };
+}
+
+async function readFromContract(contractAddr: `0x${string}`, name: string) {
+    return await PUBLIC_CLIENT.readContract({
+        address: contractAddr,
+        abi: ABI,
+        functionName: name,
+    });
+}

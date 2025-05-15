@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Modal, { ModalProps } from "./Modal";
 import Button from "./Button";
-import FormTextField from "./FormTextField";
+import FormInput from "./FormTextField";
 
 interface NewDisputeModalProps {
     onClose: () => void;
@@ -32,14 +32,14 @@ export default function NewDisputeModal({
     return (
         <Modal title={title} onClose={onClose}>
             <div className="space-y-4">
-                <FormTextField
+                <FormInput
                     id="dispute-contract-id"
                     type="text"
                     value={contractId}
                     onChange={setContractId}
                 >
                     Contract ID
-                </FormTextField>
+                </FormInput>
 
                 <div className="flex gap-8 justify-between items-center">
                     <Button label="Submit" onClick={handleSubmit} />
