@@ -1,15 +1,5 @@
 import { concatBytes, keccak256 } from "viem";
-import { bytesArraysAreEqual } from "./helpers";
-
-// Returns an copy of `v` extended/shrinked to 32 elements
-// If extended, is left-padded with 0s
-// If shrinked, takes the 32 first elements
-function toBytes32(v: Uint8Array): Uint8Array {
-    if (v.length >= 32) return new Uint8Array(Array.from(v).slice(0, 32));
-
-    const padding = new Uint8Array(32 - v.length);
-    return concatBytes([padding, v]);
-}
+import { bytesArraysAreEqual, toBytes32 } from "./helpers";
 
 // Returns the keccak256 hash of `v` after extending it 32 bytes
 function hash(v: Uint8Array): Uint8Array {

@@ -4,41 +4,10 @@ export const COUNTER_SIZE = 8; // in bytes
 export const BLOCK_SIZE = 32; // in bytes
 const ALGORITHM = "AES-CTR";
 
-/**
- * Generates a cryptographic encryption and decryption key for later usage in
- * AES-CTR mode using the `crypto.subtle` API.
- * @param {number} lengthBytes Length of the key in bytes. Must be 16, 24 or 32
- * @returns {Promise<[CryptoKey, Uint8Array]>} The generated key as a `CryptoKey`
- * and exported in raw format as a `Uint8Array`. The first one can be used as
- * such with `crypto.subtle`.
- */
-export async function generateKey(
-    lengthBytes: number
-): Promise<[CryptoKey, Uint8Array]> {
-    if (!POSSIBLE_KEY_SIZES.includes(lengthBytes)) {
-        throw Error("Key must be 16, 24 or 32 bytes long");
-    }
-    let key = await crypto.subtle.generateKey(
-        {
-            name: ALGORITHM,
-            length: lengthBytes * 8, // in bits
-        },
-        true, // extractable
-        ["encrypt", "decrypt"]
-    );
-
-    return [key, new Uint8Array(await crypto.subtle.exportKey("raw", key))];
-}
-
-/**
- * Converts the bytes of a cryptographic key (in the format when exporting with
- * `crypto.subtle.exportKey("raw", key)`) to a `CryptoKey`. The returned key
- * can be used for encryption and decryption of AES-CTR and cannot be exported.
- * @param {Uint8Array} key The bytes of the key in the format returned by
- * `crypto.subtle.exportKey("raw", key)`
- * @returns {Promise<CryptoKey>} The provided bytes converted to a `CryptoKey`
- */
-export async function convertKey(key: Uint8Array): Promise<CryptoKey> {
+// Converts the bytes of a cryptographic key (in the format when exporting with
+// `crypto.subtle.exportKey("raw", key)`) to a `CryptoKey`. The returned key
+// can be used for encryption and decryption of AES-CTR and cannot be exported.
+async function convertKey(key: Uint8Array): Promise<CryptoKey> {
     return await crypto.subtle.importKey("raw", key, ALGORITHM, false, [
         "encrypt",
         "decrypt",
@@ -111,6 +80,7 @@ async function internalDecrypt(
 
 /**
  * Encrypts the provided block using the key and counter
+ *
  * @param {Uint8Array[]} data The parameters of the encryption function with the
  * following format:
  * data = [
@@ -126,6 +96,7 @@ export async function encryptBlock(data: Uint8Array[]): Promise<Uint8Array> {
 
 /**
  * Decrypts the provided block using the key and counter
+ *
  * @param {Uint8Array[]} data The parameters of the decryption function with the
  * following format:
  * data = [

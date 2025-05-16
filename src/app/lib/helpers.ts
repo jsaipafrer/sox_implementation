@@ -1,4 +1,5 @@
 import { concatBytes } from "viem";
+import { Circuit, Gate } from "./circuits/evaluator";
 
 export function hexToBytes(hex: string): Uint8Array {
     if (hex[1] == "x") hex = hex.slice(2);
@@ -31,7 +32,8 @@ export function bytesToHex(bytes: Uint8Array, withPrefix?: boolean): string {
 
 // Returns true if a and b have equal values
 export function bytesArraysAreEqual(a: Uint8Array, b: Uint8Array): boolean {
-    if (a === undefined && b === undefined) return true; // both are undefined/null
+    if (a === undefined && b === undefined) return true; // both are undefined
+    if (a === undefined || b === undefined) return false; // only one is undefined
     if (a.length != b.length) return false;
 
     for (let i = 0; i < a.length; ++i) {
@@ -59,22 +61,85 @@ export async function fileToByteArray(file: File): Promise<Uint8Array> {
 
 export function bytesToBlocks(
     data: Uint8Array,
-    blockSize: number
+    blockSizeBytes: number
 ): Uint8Array[] {
-    const numBlocks = Math.ceil(data.length / blockSize);
-    const paddingSize = numBlocks * blockSize - data.length;
+    const numBlocks = Math.ceil(data.length / blockSizeBytes);
+    const paddingSize = numBlocks * blockSizeBytes - data.length;
     const res = new Array(numBlocks); // 0-padded to the right
 
     for (let i = 0; i < numBlocks; ++i) {
-        let next = data.slice(blockSize * i, blockSize * (i + 1));
+        let next = data.slice(blockSizeBytes * i, blockSizeBytes * (i + 1));
 
-        if (next.length < blockSize) {
+        if (next.length < blockSizeBytes) {
             let padding = new Uint8Array(paddingSize);
-            next = concatBytes([padding, next]);
+            next = concatBytes([next, padding]);
         }
 
         res[i] = next;
     }
 
     return res;
+}
+
+function signed32bToUint8Array(n: number): Uint8Array {
+    if (n < -2147483648 || n > 2147483647) {
+        throw new Error("Number out of range for 32-bit signed integer");
+    }
+
+    const res = new Uint8Array(4); // 32-bits
+
+    for (let i = 0; i < 4; i++) {
+        res[3 - i] = (n >> (i * 8)) & 0xff;
+    }
+
+    return res;
+}
+
+function gateToBytes(gate: Gate): Uint8Array {
+    if (gate[0] == -1) return signed32bToUint8Array(-1);
+
+    const res = new Array(gate[1].length + 1);
+    res[0] = signed32bToUint8Array(gate[0]);
+
+    for (let i = 1; i < res.length; ++i)
+        res[i] = signed32bToUint8Array(gate[1][i - 1]);
+
+    return new Uint8Array(res);
+}
+
+export function circuitToBytesArray(circuit: Circuit): Uint8Array[] {
+    const res = new Array(circuit.length);
+
+    for (let i = 0; i < res.length; ++i) {
+        res[i] = gateToBytes(circuit[i]);
+    }
+
+    return res;
+}
+
+// Returns an copy of `v` extended/shrinked to 32 elements
+// If extended, is left-padded with 0s
+// If shrinked, takes the 32 first elements
+export function toBytes32(v: Uint8Array): Uint8Array {
+    if (v.length >= 32) return new Uint8Array(Array.from(v).slice(0, 32));
+
+    const padding = new Uint8Array(32 - v.length);
+    return concatBytes([padding, v]);
+}
+
+export function uint8ArrayToBigInt(array: Uint8Array): bigint {
+    let result = 0n;
+    for (let i = 0; i < array.length; i++) {
+        result = (result << 8n) | BigInt(array[i]);
+    }
+    return result;
+}
+
+export function bigIntToUint8Array(value: bigint, length: number): Uint8Array {
+    const array = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+        array[length - i - 1] = Number(value & 0xffn);
+        value >>= 8n;
+    }
+    return array;
 }
