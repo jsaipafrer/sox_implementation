@@ -1,11 +1,11 @@
 import { bytesToHex, encodePacked, keccak256 } from "viem";
-import { bytesArraysAreEqual, fileToByteArray } from "./helpers";
+import { bytesArraysAreEqual, fileToBytes } from "./helpers";
 
 export async function commitFile(
     files: FileList,
     key: Uint8Array
 ): Promise<Uint8Array> {
-    const fileBytes = await fileToByteArray(files[0]);
+    const fileBytes = await fileToBytes(files[0]);
     return commit(fileBytes, key);
 }
 

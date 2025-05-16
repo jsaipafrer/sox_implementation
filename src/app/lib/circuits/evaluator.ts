@@ -1,6 +1,7 @@
 import { sha256Compression } from "./components/sha256";
 import { encryptBlock, decryptBlock } from "./components/aes-ctr";
-import { binAdd, binMult, binEquals } from "./components/simpleOps";
+import { binAdd, binMult, binEquals, concat } from "./components/simpleOps";
+import { CompiledCircuit } from "./compilator";
 
 export type Gate = [number, number[]]; // [operationId, sons]
 export type Circuit = Gate[];
@@ -16,6 +17,7 @@ const VERSIONS_INSTRUCTIONS: Instruction[][] = [
         binAdd,
         binMult,
         binEquals,
+        concat,
     ],
 ];
 
@@ -23,7 +25,7 @@ const VERSIONS_INSTRUCTIONS: Instruction[][] = [
 function getEvaluatedSons(
     gate: Gate,
     evaluatedCircuit: Uint8Array[],
-    constants?: Uint8Array[]
+    constants?: (Uint8Array | undefined)[]
 ): Uint8Array[] {
     let sons = [];
 
@@ -31,11 +33,14 @@ function getEvaluatedSons(
         if (s >= 0) {
             if (s >= evaluatedCircuit.length)
                 throw new Error(
-                    "One of the sons' index is not smaller than the gate's"
+                    `Son index ${s} cannot be greater than the gate's index ${evaluatedCircuit.length}`
                 );
             sons.push(evaluatedCircuit[s]);
-        } else if (constants) sons.push(constants[-(s + 1)]);
-        else throw new Error(`Missing constant with id no ${s}`);
+        } else if (constants) {
+            if (-(s + 1) >= constants.length)
+                throw new Error("Circuit is referencing undefined constant");
+            sons.push(constants[-(s + 1)]!);
+        } else throw new Error(`Missing constant with id no ${s}`);
     }
 
     return sons;
@@ -47,7 +52,7 @@ function getEvaluatedSons(
  *
  * @param {Uint8Array[]} inputBlocks Input to the circuit split into blocks. It
  * must have as many elements as the number of dummy gates in the circuit
- * @param {Circuit} circuit Circuit to evaluate
+ * @param {CompiledCircuit} circuit Circuit to evaluate
  * @param {number} version Version of the instruction set
  * @param {Uint8Array[]?} constants Constants used for the evaluation
  * @returns {Promise<[EvaluatedGate, EvaluatedCircuit?]>} The value of the last
@@ -55,9 +60,7 @@ function getEvaluatedSons(
  */
 export async function evaluateCircuit(
     inputBlocks: Uint8Array[],
-    circuit: Circuit,
-    version: number,
-    constants?: Uint8Array[]
+    { circuit, constants, version }: CompiledCircuit
 ): Promise<[EvaluatedGate, EvaluatedCircuit?]> {
     if (inputBlocks.length == 0) return [new Uint8Array(), undefined];
 
@@ -69,7 +72,7 @@ export async function evaluateCircuit(
 
     let evaluatedCircuit = [];
     // Adding the base elements
-    for (let i = 0; i < inputBlocks.length - 1; ++i) {
+    for (let i = 0; i < inputBlocks.length; ++i) {
         if (circuit[i][0] != -1)
             throw Error("Input doesn't fit in dummy gates");
         evaluatedCircuit.push(inputBlocks[i]);

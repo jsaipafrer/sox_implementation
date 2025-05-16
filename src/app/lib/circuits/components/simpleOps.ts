@@ -1,3 +1,4 @@
+import { concatBytes } from "viem";
 import {
     bigIntToUint8Array,
     bytesArraysAreEqual,
@@ -6,6 +7,7 @@ import {
 
 /**
  * Checks whether the 2 first arguments of `data` are equal
+ *
  * @param {Uint8Array[]} data The elements to compare
  * @returns {Promise<Uint8Array>} An array of 32 bytes. The LSB is 1 if the
  * elements are equal and 0 otherwise.
@@ -35,6 +37,7 @@ function internalBinAdd(a: Uint8Array, b: Uint8Array): Uint8Array {
  * Performs the addition of the 2 elements in `data`. The arrays are interpreted
  * as big-endian representation of 32 bytes integers. If the result is larger
  * than 32 bytes, the 32 LSB are returned.
+ *
  * @param {Uint8Array[]} data The elements to add. Both must be 32 bytes long.
  * @returns {Promise<Uint8Array>} The result of the addition as a 32 bytes number
  */
@@ -58,10 +61,21 @@ function internalBinMult(a: Uint8Array, b: Uint8Array): Uint8Array {
  * Performs the product of the 2 elements in `data`. The arrays are interpreted
  * as big-endian representation of 32 bytes integers. If the result is larger
  * than 32 bytes, the 32 LSB are returned.
+ *
  * @param {Uint8Array[]} data The elements to multiply. Both must be 32 bytes
  * long.
  * @returns {Promise<Uint8Array>} The result of the product as a 32 bytes number
  */
 export async function binMult(data: Uint8Array[]): Promise<Uint8Array> {
     return internalBinMult(data[0], data[1]);
+}
+
+/**
+ * Returns the concatenation of all elements in `data` in the order they are
+ *
+ * @param data Data to concatenate
+ * @returns The concatenation of the provided byte arrays
+ */
+export async function concat(data: Uint8Array[]): Promise<Uint8Array> {
+    return concatBytes(data);
 }

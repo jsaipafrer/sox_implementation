@@ -1,6 +1,9 @@
 const POSSIBLE_KEY_SIZES = [16, 24, 32]; // in bytes
-// 64B counter, see https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams
-export const COUNTER_SIZE = 8; // in bytes
+// according to https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams,
+// the size of the counter must be 16 bytes where the 8 MSB are the nonce
+// and the 8 LSB are the actual counter
+export const COUNTER_SIZE = 16; // in bytes
+const REAL_COUNTER_SIZE = 8;
 export const BLOCK_SIZE = 32; // in bytes
 const ALGORITHM = "AES-CTR";
 
@@ -38,7 +41,7 @@ async function internalEncrypt(
         {
             name: ALGORITHM,
             counter,
-            length: COUNTER_SIZE * 8, // in bits
+            length: REAL_COUNTER_SIZE * 8, // in bits
         },
         await convertKey(key),
         block
@@ -69,7 +72,7 @@ async function internalDecrypt(
         {
             name: ALGORITHM,
             counter,
-            length: COUNTER_SIZE * 8, // in bits
+            length: REAL_COUNTER_SIZE * 8, // in bits
         },
         await convertKey(key),
         ctBlock
@@ -86,12 +89,13 @@ async function internalDecrypt(
  * data = [
  *      key (16, 24 or 32 bytes),
  *      block (32 bytes),
- *      counter starting value (8 bytes)
+ *      counter starting value (32 bytes)
  * ]
  * @returns {Promise<Uint8Array>} The encryption of the block
  */
 export async function encryptBlock(data: Uint8Array[]): Promise<Uint8Array> {
-    return await internalEncrypt(data[0], data[1], data[2]);
+    const counter = data[2].slice(-COUNTER_SIZE);
+    return await internalEncrypt(data[0], data[1], counter);
 }
 
 /**
@@ -102,10 +106,11 @@ export async function encryptBlock(data: Uint8Array[]): Promise<Uint8Array> {
  * data = [
  *      key (16, 24 or 32 bytes),
  *      block (32 bytes),
- *      counter starting value (8 bytes)
+ *      counter starting value (32 bytes)
  * ]
  * @returns {Promise<Uint8Array>} The decryption of the block
  */
 export async function decryptBlock(data: Uint8Array[]): Promise<Uint8Array> {
-    return await internalDecrypt(data[0], data[1], data[2]);
+    const counter = data[2].slice(-COUNTER_SIZE);
+    return await internalDecrypt(data[0], data[1], counter);
 }

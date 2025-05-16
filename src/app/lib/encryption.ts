@@ -1,8 +1,11 @@
-import { fileToByteArray as fileToBytes } from "./helpers";
+import { fileToBytes as fileToBytes } from "./helpers";
 
 const POSSIBLE_KEY_SIZES = [16, 24, 32]; // in bytes
-// 64B counter, see https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams
-export const COUNTER_SIZE = 8; // in bytes
+// according to https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams,
+// the size of the counter must be 16 bytes where the 8 MSB are the nonce
+// and the 8 LSB are the actual counter
+export const COUNTER_SIZE = 16; // in bytes
+const REAL_COUNTER_SIZE = 8;
 export const BLOCK_SIZE = 32; // in bytes
 const ALGORITHM = "AES-CTR";
 
@@ -52,7 +55,7 @@ export async function generateKey(
 export async function encryptFile(
     file: File,
     key: CryptoKey,
-    counter: Uint8Array
+    counter?: Uint8Array
 ): Promise<Cipher> {
     const fileBytes = await fileToBytes(file);
     return await encrypt(fileBytes, key, counter);
@@ -69,17 +72,20 @@ export async function encryptFile(
 export async function encrypt(
     data: Uint8Array,
     key: CryptoKey,
-    counter: Uint8Array
+    counter?: Uint8Array
 ): Promise<Cipher> {
+    if (!counter)
+        counter = crypto.getRandomValues(new Uint8Array(COUNTER_SIZE));
+
     if (counter.length != COUNTER_SIZE) {
-        throw Error("Counter must be 16 bytes long");
+        throw Error(`Counter must be ${COUNTER_SIZE} bytes long`);
     }
 
     const ct = await crypto.subtle.encrypt(
         {
             name: ALGORITHM,
-            counter: counter,
-            length: COUNTER_SIZE,
+            counter,
+            length: REAL_COUNTER_SIZE * 8,
         },
         key,
         data
@@ -102,14 +108,18 @@ export async function decrypt(
     data: Cipher,
     key: CryptoKey
 ): Promise<Uint8Array> {
-    const iv = data.counter;
+    const counter = data.counter;
     const ct = data.ct;
+
+    if (counter.length != COUNTER_SIZE) {
+        throw Error(`Counter must be ${COUNTER_SIZE} bytes long`);
+    }
 
     const decrypted = await crypto.subtle.decrypt(
         {
             name: ALGORITHM,
-            counter: iv,
-            length: COUNTER_SIZE,
+            counter,
+            length: REAL_COUNTER_SIZE * 8,
         },
         key,
         ct

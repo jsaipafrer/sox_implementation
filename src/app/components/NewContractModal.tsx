@@ -6,10 +6,21 @@ import Button from "./Button";
 import FormTextField from "./FormTextField";
 import FormSelect from "./FormSelect";
 import FormFileInput from "./FormFileInput";
-import { commitFile } from "../lib/commitment";
-import { bytesToBlocks, bytesToHex } from "../lib/helpers";
-import { encryptFile, generateKey } from "../lib/encryption";
+import { commit } from "../lib/commitment";
+import {
+    bytesToBlocks,
+    bytesToHex,
+    circuitToBytesArray,
+    fileToBytes,
+    padBytes,
+} from "../lib/helpers";
+import { decrypt, encrypt, generateKey } from "../lib/encryption";
 import { acc } from "../lib/accumulator";
+import { compileBasicCircuit } from "../lib/circuits/compilator";
+import { evaluateCircuit } from "../lib/circuits/evaluator";
+import { BLOCK_SIZE } from "../lib/circuits/components/aes-ctr";
+import { concatBytes } from "viem";
+import { sha256CircuitPadding } from "../lib/circuits/components/sha256";
 
 interface NewContractModalProps {
     onClose: () => void;
@@ -22,7 +33,6 @@ export default function NewContractModal({
 }: NewContractModalProps) {
     const [buyerPk, setBuyerPk] = useState("");
     const [vendorPk, setVendorPk] = useState("");
-    const [itemDescription, setItemDescription] = useState("");
     const [price, setPrice] = useState("");
     const [tipCompletion, setTipCompletion] = useState("");
     const [tipDispute, setTipDispute] = useState("");
@@ -32,28 +42,54 @@ export default function NewContractModal({
     const [file, setFile] = useState<FileList | null>();
 
     const handleSubmit = async () => {
-        const key = await generateKey(16); // 128 bits key
-        const ct = await encryptFile(file!, key, new Uint8Array(16)); // TODO how to handle iv
-        const ctBlocks = bytesToBlocks(ct, 256);
+        // generate the encryption key and encrypt the file with it
+        const [key, keyBytes] = await generateKey(16); // 128 bits key
+        const fileBytes = await fileToBytes(file![0]);
+
+        // we pad the file so that its length is a multiple of the block size
+        const padLength = BLOCK_SIZE - (fileBytes.length % BLOCK_SIZE);
+        const paddedFile = padBytes(
+            fileBytes,
+            fileBytes.length + padLength,
+            true
+        );
+        const ct = await encrypt(paddedFile, key);
+        const ctCircuit = concatBytes([
+            ct.ct,
+            padBytes(ct.counter, BLOCK_SIZE),
+        ]);
+
+        // Get the description. Note that even though the basic circuit does AES
+        // decryption + SHA256, doing a standard SHA256 hash will not work because
+        // the circuit doesn't use the same padding as SHA256 does. This is why
+        // we use a "special" SHA256 with right 0-padding to get the description.
+        const description = sha256CircuitPadding(paddedFile);
+
+        // convert the ciphertext to blocks and compute accumulator
+        const ctBlocks = bytesToBlocks(ctCircuit, BLOCK_SIZE);
         const hCt = acc(ctBlocks);
 
-        // const commitment = await commitFile(file!, new Uint8Array(8)); // TODO set key,
-        // const description =
+        // compile circuit and compute accumulator
+        const circuit = compileBasicCircuit(ctBlocks.length - 1);
+        const hCircuit = acc(circuitToBytesArray(circuit.circuit));
+
+        // compute commitment
+        const commitment = commit(hCircuit, hCt);
+
         let data = {
             pk_buyer: buyerPk,
             pk_vendor: vendorPk,
-            item_description: itemDescription,
+            item_description: bytesToHex(description, true),
             price: price,
             tip_completion: tipCompletion,
             tip_dispute: tipDispute,
             protocol_version: version,
             timeout_delay: timeoutDelay,
             algorithm_suite: algorithms,
-            // commitment: bytesToHex(commitment, true),
-            // key: bytesToHex(key, true),
+            commitment: bytesToHex(commitment, true),
+            key: bytesToHex(keyBytes, true),
         };
 
-        console.log(data);
         fetch("/api/precontracts", {
             method: "PUT",
             headers: {

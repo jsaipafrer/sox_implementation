@@ -1,4 +1,5 @@
-import { bytesToHex } from "../../helpers";
+import { concatBytes } from "viem";
+import { bigIntToUint8Array, bytesToHex, padBytes } from "../../helpers";
 
 // SHA-256 implementation
 const BLOCK_SIZE = 64; // in bytes
@@ -45,7 +46,7 @@ function ror(w: Word, n: number): Word {
     return ((w >>> n) | (w << (32 - n))) >>> 0;
 }
 
-function padMessage(message: ArrayLike<number>): Block[] {
+function standardPad(message: ArrayLike<number>): Block[] {
     const lenBits = message.length * 8;
 
     let paddedMsg = Array.from(message);
@@ -156,7 +157,7 @@ function internalSHA256(msg: string): [Digest, string] {
     let H = BASE_H;
 
     let msgBytes: Byte[] = Array.from(new TextEncoder().encode(msg));
-    let paddedMessage = padMessage(msgBytes);
+    let paddedMessage = standardPad(msgBytes);
 
     for (let block of paddedMessage) {
         // for our use, the entire Davies-Meyer construction is the compression function
@@ -183,15 +184,6 @@ function bytesToDigest(bytes: Uint8Array): Digest {
     return res as Digest;
 }
 
-function bytesToBlock(bytes: Uint8Array): Block {
-    // pad the received bytes to have the size of a block
-    let res = Array.from(bytes);
-    while (res.length < BLOCK_SIZE) res.unshift(0);
-    res = res.slice(0, BLOCK_SIZE); // in case input is bigger than block size
-
-    return res as Block;
-}
-
 function digestToBytes(digest: Digest): Uint8Array {
     let res = [];
 
@@ -203,18 +195,14 @@ function digestToBytes(digest: Digest): Uint8Array {
 }
 
 function wordToBytes(word: Word): Uint8Array {
-    let res: number[] = [];
-
-    while (word > 0) {
-        res.unshift(word & 0xff); // word & 0xff == LSByte(word)
-        word >>>= 8;
-    }
-
-    return new Uint8Array(res);
+    return bigIntToUint8Array(BigInt(word), WORD_SIZE);
 }
 
+/*
+Data format:
+data = [previous block (optional; 32 bytes), block (512 bytes)]
+*/
 export async function sha256Compression(
-    key: Uint8Array,
     data: Uint8Array[]
 ): Promise<Uint8Array> {
     const nextBlock = data.slice(-1)[0];
@@ -229,11 +217,50 @@ export async function sha256Compression(
     return digestToBytes(digest);
 }
 
-export async function sha256(
-    key: Uint8Array,
-    data: Uint8Array[]
-): Promise<Uint8Array> {
-    const [digest] = internalSHA256(bytesToHex(data[0]));
+/*
+Data format: blocks of whatever size, will be concatenated anyway
+*/
+export async function sha256(data: Uint8Array[]): Promise<Uint8Array> {
+    const [digest] = internalSHA256(bytesToHex(concatBytes(data)));
 
     return digestToBytes(digest);
+}
+
+function bytesToBlock(bytes: Uint8Array): Block {
+    if (bytes.length != BLOCK_SIZE)
+        throw new Error(
+            `Provided bytes must have ${BLOCK_SIZE} bytes but they are ${bytes.length}`
+        );
+    const res = new Array(BLOCK_SIZE) as Block;
+
+    for (let i = 0; i < BLOCK_SIZE; ++i) res[i] = bytes[i];
+
+    return res;
+}
+
+export function sha256CircuitPadding(data: Uint8Array): Uint8Array {
+    const padLength = BLOCK_SIZE - (data.length % BLOCK_SIZE);
+    if (padLength != BLOCK_SIZE) {
+        // padding necessary
+        data = padBytes(data, data.length + padLength, true);
+    }
+
+    if (data.length % BLOCK_SIZE != 0)
+        throw new Error(
+            `Something wrong happened with the padding, it has length ${data.length}`
+        );
+
+    const numBlocks = data.length / BLOCK_SIZE;
+    let res = internalCompression(
+        BASE_H,
+        bytesToBlock(data.slice(0, BLOCK_SIZE))
+    );
+
+    for (let i = 1; i < numBlocks; ++i)
+        res = internalCompression(
+            res,
+            bytesToBlock(data.slice(i * BLOCK_SIZE, (i + 1) * BLOCK_SIZE))
+        );
+
+    return digestToBytes(res);
 }

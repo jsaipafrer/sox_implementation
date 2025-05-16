@@ -43,7 +43,7 @@ export function bytesArraysAreEqual(a: Uint8Array, b: Uint8Array): boolean {
     return true;
 }
 
-export async function fileToByteArray(file: File): Promise<Uint8Array> {
+export async function fileToBytes(file: File): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -63,6 +63,7 @@ export function bytesToBlocks(
     data: Uint8Array,
     blockSizeBytes: number
 ): Uint8Array[] {
+    // FIXME looks fishy
     const numBlocks = Math.ceil(data.length / blockSizeBytes);
     const paddingSize = numBlocks * blockSizeBytes - data.length;
     const res = new Array(numBlocks); // 0-padded to the right
@@ -121,10 +122,7 @@ export function circuitToBytesArray(circuit: Circuit): Uint8Array[] {
 // If extended, is left-padded with 0s
 // If shrinked, takes the 32 first elements
 export function toBytes32(v: Uint8Array): Uint8Array {
-    if (v.length >= 32) return new Uint8Array(Array.from(v).slice(0, 32));
-
-    const padding = new Uint8Array(32 - v.length);
-    return concatBytes([padding, v]);
+    return padBytes(v, 32);
 }
 
 export function uint8ArrayToBigInt(array: Uint8Array): bigint {
@@ -142,4 +140,14 @@ export function bigIntToUint8Array(value: bigint, length: number): Uint8Array {
         value >>= 8n;
     }
     return array;
+}
+
+export function padBytes(bytes: Uint8Array, length: number, right?: boolean) {
+    if (bytes.length >= length) {
+        if (right) return new Uint8Array(Array.from(bytes).slice(-length));
+        else return new Uint8Array(Array.from(bytes).slice(0, length));
+    }
+
+    const padding = new Uint8Array(length - bytes.length);
+    return concatBytes(right ? [bytes, padding] : [padding, bytes]);
 }
