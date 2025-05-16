@@ -3,9 +3,8 @@
 import { hexToBytes } from "@/app/lib/helpers";
 import db from "../../lib/sqlite";
 import { NextResponse } from "next/server";
-import fs from "node:fs/promises";
-
-const UPLOADS_PATH = "src/app/uploads/";
+import fs from "node:fs";
+import { UPLOADS_PATH } from "../files/[id]/route";
 
 export async function PUT(req: Request) {
     const data = await req.json();
@@ -33,11 +32,12 @@ export async function PUT(req: Request) {
     const id = result.lastInsertRowid;
 
     const fileName = `file_${id}.enc`;
-    await fs.writeFile(`${UPLOADS_PATH}${fileName}`, hexToBytes(data.file));
+    fs.writeFileSync(`${UPLOADS_PATH}${fileName}`, hexToBytes(data.file));
 
+    console.log(fileName);
     stmt = db.prepare(`UPDATE contracts 
         SET encrypted_file_name = ? 
         WHERE id = ?`);
-    stmt.run(fileName, data.id); // FIXME raw insertion might be unsafe
+    stmt.run(fileName, id); // FIXME raw insertion might be unsafe
     return NextResponse.json({ id });
 }

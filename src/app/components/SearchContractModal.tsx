@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
 import FormInput from "./FormTextField";
+import { bytesToBlocks, circuitToBytesArray, hexToBytes } from "../lib/helpers";
+import { acc } from "../lib/accumulator";
+import { BLOCK_SIZE } from "../lib/encryption";
+import { compileBasicCircuit } from "../lib/circuits/compilator";
+import { open } from "../lib/commitment";
 
 interface NewContractModalProps {
     onClose: () => void;
@@ -56,6 +61,45 @@ export default function SearchContractModal({
         window.dispatchEvent(new Event("reloadData"));
         alert(`Rejected contract ${id}`);
         onClose();
+    };
+
+    const verifyCommitment = async (id: string) => {
+        const fileHex = (
+            await (
+                await fetch(`/api/files/${id}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                })
+            ).json()
+        ).file;
+
+        const commitmentHex = (
+            await (
+                await fetch(`/api/commitments/${id}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                })
+            ).json()
+        ).commitment;
+
+        const ctCircuit = hexToBytes(fileHex);
+        const ctBlocks = bytesToBlocks(ctCircuit, BLOCK_SIZE);
+        const hCt = acc(ctBlocks);
+
+        // compile circuit and compute accumulator
+        const circuit = compileBasicCircuit(ctBlocks.length - 1);
+        const hCircuit = acc(circuitToBytesArray(circuit.circuit));
+
+        try {
+            open(hexToBytes(commitmentHex), [hCircuit, hCt]);
+            alert("Commitment is correct!");
+        } catch {
+            alert("!!! Commitment is incorrect !!!");
+        }
     };
 
     useEffect(() => {
@@ -111,6 +155,15 @@ export default function SearchContractModal({
                                         </td>
                                         <td className="p-2 border">
                                             {row.item_description}
+                                        </td>
+                                        <td className="p-2 border text-center">
+                                            <Button
+                                                label="Verify commitment"
+                                                onClick={() =>
+                                                    verifyCommitment(row.id)
+                                                }
+                                                width="full"
+                                            />
                                         </td>
                                         <td className="p-2 border text-center">
                                             <Button

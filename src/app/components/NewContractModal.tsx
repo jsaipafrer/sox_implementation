@@ -14,10 +14,9 @@ import {
     fileToBytes,
     padBytes,
 } from "../lib/helpers";
-import { decrypt, encrypt, generateKey } from "../lib/encryption";
+import { encrypt, generateKey } from "../lib/encryption";
 import { acc } from "../lib/accumulator";
 import { compileBasicCircuit } from "../lib/circuits/compilator";
-import { evaluateCircuit } from "../lib/circuits/evaluator";
 import { BLOCK_SIZE } from "../lib/circuits/components/aes-ctr";
 import { concatBytes } from "viem";
 import { sha256CircuitPadding } from "../lib/circuits/components/sha256";
