@@ -1,90 +1,109 @@
-import { concatBytes } from "viem";
-import { bytesToHex, fileToByteArray, hexToBytes } from "./helpers";
+import { fileToByteArray as fileToBytes } from "./helpers";
 
+const POSSIBLE_KEY_SIZES = [16, 24, 32]; // in bytes
+// 64B counter, see https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams
+export const COUNTER_SIZE = 8; // in bytes
+export const BLOCK_SIZE = 32; // in bytes
 const ALGORITHM = "AES-CTR";
 
 interface Cipher {
-    iv: string;
-    ct: string;
+    counter: Uint8Array;
+    ct: Uint8Array;
 }
 
-const POSSIBLE_KEY_SIZES = [16, 24, 32]; // in bytes
-const IV_SIZE = 16;
-const COUNTER_SIZE = 64; // in bits, see https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams
-
-export async function generateKey(lengthBytes: number): Promise<Uint8Array> {
-    if (!POSSIBLE_KEY_SIZES.includes(lengthBytes))
-        throw Error(`Invalid key size of ${lengthBytes} bytes`);
-
+/**
+ * Generates a cryptographic encryption and decryption key for later usage in
+ * AES-CTR mode using the `crypto.subtle` API.
+ *
+ * @param {number} lengthBytes Length of the key in bytes. Must be 16, 24 or 32
+ * @returns {Promise<[CryptoKey, Uint8Array]>} The generated key as a `CryptoKey`
+ * and exported in raw format as a `Uint8Array`. The first one can be used as
+ * such with `crypto.subtle`.
+ */
+export async function generateKey(
+    lengthBytes: number
+): Promise<[CryptoKey, Uint8Array]> {
+    if (!POSSIBLE_KEY_SIZES.includes(lengthBytes)) {
+        throw Error(
+            `Key must be one of those sizes: ${POSSIBLE_KEY_SIZES} (in bytes)`
+        );
+    }
     let key = await crypto.subtle.generateKey(
         {
             name: ALGORITHM,
-            length: 128,
+            length: lengthBytes * 8, // in bits
         },
         true, // extractable
         ["encrypt", "decrypt"]
     );
 
-    return new Uint8Array(await crypto.subtle.exportKey("raw", key));
+    return [key, new Uint8Array(await crypto.subtle.exportKey("raw", key))];
 }
 
-async function convertKey(key: Uint8Array): Promise<CryptoKey> {
-    return await crypto.subtle.importKey("raw", key, ALGORITHM, false, [
-        "encrypt",
-        "decrypt",
-    ]);
-}
-
+/**
+ * Encrypts the given file interpreted as a big-endian byte array using AES-CTR.
+ * The returned value contains the counter and the ciphertext.
+ *
+ * @param {File} file File to encrypt
+ * @param {CryptoKey} key Encryption key
+ * @param {Uint8Array} counter Starting value of the counter
+ * @returns {Cipher} The file encrypted with AES-CTR mode
+ */
 export async function encryptFile(
-    file: FileList,
-    key: Uint8Array,
-    iv?: Uint8Array
-): Promise<Uint8Array> {
-    const fileBytes = await fileToByteArray(file[0]);
-    return await encrypt(fileBytes, key, iv);
+    file: File,
+    key: CryptoKey,
+    counter: Uint8Array
+): Promise<Cipher> {
+    const fileBytes = await fileToBytes(file);
+    return await encrypt(fileBytes, key, counter);
 }
 
+/**
+ * Encrypts the given data using AES-CTR.
+ *
+ * @param {Uint8Array} data Data to encrypt
+ * @param {CryptoKey} key Encryption key
+ * @param {Uint8Array} counter Starting value of the counter
+ * @returns The data encrypted with AES-CTR mode
+ */
 export async function encrypt(
     data: Uint8Array,
-    key: Uint8Array,
-    iv?: Uint8Array
-): Promise<Uint8Array> {
-    if (!POSSIBLE_KEY_SIZES.includes(key.length)) {
-        throw Error("Key must be 16, 24 or 32 bytes long");
-    }
-
-    if (!iv) {
-        iv = crypto.getRandomValues(new Uint8Array(IV_SIZE));
-    }
-
-    if (iv.length != IV_SIZE) {
-        throw Error("IV must be 16 bytes long");
+    key: CryptoKey,
+    counter: Uint8Array
+): Promise<Cipher> {
+    if (counter.length != COUNTER_SIZE) {
+        throw Error("Counter must be 16 bytes long");
     }
 
     const ct = await crypto.subtle.encrypt(
         {
             name: ALGORITHM,
-            counter: iv,
+            counter: counter,
             length: COUNTER_SIZE,
         },
-        await convertKey(key),
+        key,
         data
     );
 
-    return concatBytes([iv, new Uint8Array(ct)]);
+    return {
+        counter: counter,
+        ct: new Uint8Array(ct),
+    };
 }
 
+/**
+ * Decrypts the given data using AES-CTR.
+ *
+ * @param {Cipher} data Counter + ciphertext to decrypt
+ * @param {CryptoKey} key Encryption key
+ * @returns The data decrypted with AES-CTR mode
+ */
 export async function decrypt(
-    data: Uint8Array,
-    key: Uint8Array
+    data: Cipher,
+    key: CryptoKey
 ): Promise<Uint8Array> {
-    if (data.length <= IV_SIZE)
-        throw Error(
-            "The data should have the following format [iv||ciphertext] where || is a concatenation"
-        );
-
-    const iv = data.slice(0, IV_SIZE);
-    const ctBuffer = data.slice(IV_SIZE);
+    const iv = data.counter;
+    const ct = data.ct;
 
     const decrypted = await crypto.subtle.decrypt(
         {
@@ -92,8 +111,8 @@ export async function decrypt(
             counter: iv,
             length: COUNTER_SIZE,
         },
-        await convertKey(key),
-        ctBuffer
+        key,
+        ct
     );
 
     return new Uint8Array(decrypted);
