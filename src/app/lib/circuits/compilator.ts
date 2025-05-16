@@ -1,24 +1,63 @@
+import { bigIntToUint8Array } from "../helpers";
 import { Circuit } from "./evaluator";
 
-export function compileBasicCircuit(numBlocks: number): Circuit {
-    const circuit = new Array(3 * numBlocks + 1);
+type CompiledCircuit = {
+    circuit: Circuit;
+    constants: (Uint8Array | undefined)[];
+    version: number;
+};
 
-    // dummy gates for the ciphertext blocks
-    for (let i = 0; i < numBlocks; ++i) circuit[i] = [-1, []];
+export function compileBasicCircuit(ctBlocks: number): CompiledCircuit {
+    //   m+1 dummy gates (m for the ciphertext, 1 for the counter)
+    // + m-1 addition gates for incrementing the counter before AES (from 2nd one)
+    // + m AES gates
+    // + m SHA compression gates
+    // + 1 comparison gate
+    // = 4*m + 1
+    const circuit = new Array(4 * ctBlocks + 1);
+
+    // dummy gates
+    let i = 0;
+    for (; i < ctBlocks + 1; ++i) circuit[i] = [-1, []];
+
+    // addition gates (gate[i-1] + 2)
+    for (; i < 2 * ctBlocks; ++i) circuit[i] = [3, [i - 1, -1]];
 
     // AES decryption gates
-    for (let i = numBlocks; i < 2 * numBlocks; ++i) {
-        circuit[i] = [2, [i - numBlocks]];
+    for (; i < 3 * ctBlocks; ++i) {
+        circuit[i] = [
+            2,
+            [
+                /* key */ -2,
+                /* block */ i - 2 * ctBlocks,
+                /* counter */ i - ctBlocks,
+            ],
+        ];
     }
 
-    // SHA256 compression functions
-    circuit[2 * numBlocks] = [0, [numBlocks]]; // only depends on output of first AES gate
-    for (let i = 2 * numBlocks + 1; i < 3 * numBlocks; ++i) {
-        circuit[i] = [0, [i - 1, i - numBlocks]];
+    // SHA256 compression gates
+    circuit[i] = [0, [2 * ctBlocks]]; // only depends on output of first AES gate
+    ++i;
+    for (; i < 4 * ctBlocks; ++i) {
+        circuit[i] = [
+            0,
+            [
+                /* previous block */ i - 1,
+                /* output of corresponding AES */ i - ctBlocks,
+            ],
+        ];
     }
 
     // final comparison gate
-    circuit[3 * numBlocks] = [3, [3 * numBlocks, -1]]; // son of index -1 is the description
+    circuit[4 * ctBlocks] = [5, [4 * ctBlocks - 1, -3]];
 
-    return circuit;
+    return {
+        circuit,
+        constants: [
+            /* constant for additions */ bigIntToUint8Array(BigInt(2), 32),
+            /* key placeholder */ undefined,
+            /* description placeholder */ undefined,
+        ],
+        version: 0,
+    };
 }
