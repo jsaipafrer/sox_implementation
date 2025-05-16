@@ -2,7 +2,7 @@ import {
     bigIntToUint8Array,
     bytesArraysAreEqual,
     uint8ArrayToBigInt,
-} from "../helpers";
+} from "../../helpers";
 
 /**
  * Checks whether the 2 first arguments of `data` are equal
