@@ -1,28 +1,43 @@
-import { hexToBytes, bytesToHex } from "../../helpers";
-
-interface Cipher {
-    iv: string;
-    ct: string;
-}
-
 const POSSIBLE_KEY_SIZES = [16, 24, 32]; // in bytes
-const IV_SIZE = 16;
-const COUNTER_SIZE = 64; // in bits, see https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams
+// 64B counter, see https://developer.mozilla.org/en-US/docs/Web/API/AesCtrParams
+export const COUNTER_SIZE = 8; // in bytes
+export const BLOCK_SIZE = 32; // in bytes
 const ALGORITHM = "AES-CTR";
 
-export async function generateKey(): Promise<Uint8Array> {
+/**
+ * Generates a cryptographic encryption and decryption key for later usage in
+ * AES-CTR mode using the `crypto.subtle` API.
+ * @param {number} lengthBytes Length of the key in bytes. Must be 16, 24 or 32
+ * @returns {Promise<[CryptoKey, Uint8Array]>} The generated key as a `CryptoKey`
+ * and exported in raw format as a `Uint8Array`. The first one can be used as
+ * such with `crypto.subtle`.
+ */
+export async function generateKey(
+    lengthBytes: number
+): Promise<[CryptoKey, Uint8Array]> {
+    if (!POSSIBLE_KEY_SIZES.includes(lengthBytes)) {
+        throw Error("Key must be 16, 24 or 32 bytes long");
+    }
     let key = await crypto.subtle.generateKey(
         {
             name: ALGORITHM,
-            length: 128,
+            length: lengthBytes * 8, // in bits
         },
         true, // extractable
         ["encrypt", "decrypt"]
     );
 
-    return new Uint8Array(await crypto.subtle.exportKey("raw", key));
+    return [key, new Uint8Array(await crypto.subtle.exportKey("raw", key))];
 }
 
+/**
+ * Converts the bytes of a cryptographic key (in the format when exporting with
+ * `crypto.subtle.exportKey("raw", key)`) to a `CryptoKey`. The returned key
+ * can be used for encryption and decryption of AES-CTR and cannot be exported.
+ * @param {Uint8Array} key The bytes of the key in the format returned by
+ * `crypto.subtle.exportKey("raw", key)`
+ * @returns {Promise<CryptoKey>} The provided bytes converted to a `CryptoKey`
+ */
 export async function convertKey(key: Uint8Array): Promise<CryptoKey> {
     return await crypto.subtle.importKey("raw", key, ALGORITHM, false, [
         "encrypt",
@@ -30,89 +45,96 @@ export async function convertKey(key: Uint8Array): Promise<CryptoKey> {
     ]);
 }
 
+// Encrypts the given block of 256 bits in AES-CTR mode using the provided key
+// and the counter
 async function internalEncrypt(
-    data: Uint8Array,
     key: Uint8Array,
-    iv?: Uint8Array
-): Promise<Cipher> {
+    block: Uint8Array,
+    counter: Uint8Array
+): Promise<Uint8Array> {
     if (!POSSIBLE_KEY_SIZES.includes(key.length)) {
-        throw Error("Key must be 16, 24 or 32 bytes long");
+        throw Error(
+            `Key must be one of those sizes: ${POSSIBLE_KEY_SIZES} (in bytes)`
+        );
     }
 
-    if (iv != undefined && iv.length != IV_SIZE) {
-        throw Error("IV must be 16 bytes long");
-    } else if (iv == undefined) {
-        iv = crypto.getRandomValues(new Uint8Array(IV_SIZE));
+    if (counter.length != COUNTER_SIZE) {
+        throw Error(`Counter must be ${COUNTER_SIZE} bytes long`);
     }
+
+    if (block.length != BLOCK_SIZE)
+        throw Error(`Block must be ${BLOCK_SIZE} long`);
 
     const ct = await crypto.subtle.encrypt(
         {
             name: ALGORITHM,
-            counter: iv,
-            length: COUNTER_SIZE,
+            counter,
+            length: COUNTER_SIZE * 8, // in bits
         },
         await convertKey(key),
-        data
+        block
     );
 
-    return {
-        iv: bytesToHex(iv),
-        ct: bytesToHex(new Uint8Array(ct)),
-    };
+    return new Uint8Array(ct);
 }
 
+// Decrypts the given block of 256 bits in AES-CTR mode using the provided key
+// and the counter
 async function internalDecrypt(
-    data: Cipher,
-    key: Uint8Array
+    key: Uint8Array,
+    ctBlock: Uint8Array,
+    counter: Uint8Array
 ): Promise<Uint8Array> {
-    const iv = hexToBytes(data.iv);
-    const ctBuffer = hexToBytes(data.ct);
+    if (!POSSIBLE_KEY_SIZES.includes(key.length)) {
+        throw Error(`Key length must be ${POSSIBLE_KEY_SIZES} bytes`);
+    }
+
+    if (counter.length != COUNTER_SIZE) {
+        throw Error(`Counter must be ${COUNTER_SIZE} bytes long`);
+    }
+
+    if (ctBlock.length != BLOCK_SIZE)
+        throw Error(`Block must be ${BLOCK_SIZE} long`);
 
     const decrypted = await crypto.subtle.decrypt(
         {
             name: ALGORITHM,
-            counter: iv,
-            length: COUNTER_SIZE,
+            counter,
+            length: COUNTER_SIZE * 8, // in bits
         },
         await convertKey(key),
-        ctBuffer
+        ctBlock
     );
 
     return new Uint8Array(decrypted);
 }
 
-function combineUint8Arrays(arrays: Uint8Array[]): Uint8Array {
-    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
-    const res = new Uint8Array(totalLength);
-
-    let offset = 0;
-    for (const arr of arrays) {
-        res.set(arr, offset);
-        offset += arr.length;
-    }
-
-    return res;
+/**
+ * Encrypts the provided block using the key and counter
+ * @param {Uint8Array[]} data The parameters of the encryption function with the
+ * following format:
+ * data = [
+ *      key (16, 24 or 32 bytes),
+ *      block (32 bytes),
+ *      counter starting value (8 bytes)
+ * ]
+ * @returns {Promise<Uint8Array>} The encryption of the block
+ */
+export async function encryptBlock(data: Uint8Array[]): Promise<Uint8Array> {
+    return await internalEncrypt(data[0], data[1], data[2]);
 }
 
-export async function encryptBlock(
-    key: Uint8Array,
-    data: Uint8Array[]
-): Promise<Uint8Array> {
-    // TODO how to manage IV (so far we use 0)
-    const block = combineUint8Arrays(data);
-    const cipher = await internalEncrypt(block, key, new Uint8Array([0]));
-    return hexToBytes(cipher.ct);
-}
-
-export async function decryptBlock(
-    key: Uint8Array,
-    data: Uint8Array[]
-): Promise<Uint8Array> {
-    const block = combineUint8Arrays(data);
-    const cipher = {
-        ct: bytesToHex(block),
-        iv: "0", // TODO manage iv
-    };
-
-    return await internalDecrypt(cipher, key);
+/**
+ * Decrypts the provided block using the key and counter
+ * @param {Uint8Array[]} data The parameters of the decryption function with the
+ * following format:
+ * data = [
+ *      key (16, 24 or 32 bytes),
+ *      block (32 bytes),
+ *      counter starting value (8 bytes)
+ * ]
+ * @returns {Promise<Uint8Array>} The decryption of the block
+ */
+export async function decryptBlock(data: Uint8Array[]): Promise<Uint8Array> {
+    return await internalDecrypt(data[0], data[1], data[2]);
 }
