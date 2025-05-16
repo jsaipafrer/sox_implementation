@@ -13,7 +13,8 @@ CREATE TABLE contracts (
     timeout_delay REAL NOT NULL,
     algorithm_suite TEXT NOT NULL,
     commitment TEXT NOT NULL,
-    key TEXT NOT NULL,
+    encryption_key TEXT NOT NULL,
+    encrypted_file_name TEXT,
     accepted NUMBER NOT NULL,
     sponsor TEXT, -- can be null while the sponsor hasn't been found
     optimistic_smart_contract TEXT -- can be null while the sponsor hasn't been found

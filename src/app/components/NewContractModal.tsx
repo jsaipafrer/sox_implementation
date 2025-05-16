@@ -88,6 +88,7 @@ export default function NewContractModal({
             algorithm_suite: algorithms,
             commitment: bytesToHex(commitment, true),
             key: bytesToHex(keyBytes, true),
+            file: bytesToHex(ctCircuit),
         };
 
         fetch("/api/precontracts", {
@@ -98,9 +99,9 @@ export default function NewContractModal({
             body: JSON.stringify(data),
         })
             .then((res) => res.json())
-            .then((data) =>
-                alert(`Added new contract, it has the ID ${data.id}`)
-            );
+            .then((data) => {
+                alert(`Added new contract with ID ${data.id}`);
+            });
         window.dispatchEvent(new Event("reloadData"));
         onClose();
     };

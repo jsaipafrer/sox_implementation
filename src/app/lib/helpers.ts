@@ -44,19 +44,7 @@ export function bytesArraysAreEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 export async function fileToBytes(file: File): Promise<Uint8Array> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            if (reader.readyState === FileReader.DONE) {
-                const fileBuffer = reader.result as ArrayBuffer;
-                resolve(new Uint8Array(fileBuffer));
-            }
-        };
-        reader.onerror = () => {
-            reject(reader.error);
-        };
-        reader.readAsArrayBuffer(file);
-    });
+    return new Uint8Array(await file.arrayBuffer());
 }
 
 export function bytesToBlocks(
