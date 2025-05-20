@@ -3,7 +3,6 @@
 import Button from "../components/common/Button";
 import { useRouter } from "next/navigation";
 import SponsoredContractsListView from "../components/user/SponsoredContractsListView";
-import ContractInformation from "../components/user/ContractInformation";
 import { useState } from "react";
 import NewDisputeModal from "../components/user/NewDisputeModal";
 import SearchContractModal from "../components/user/SearchContractModal";
@@ -30,7 +29,6 @@ type Contract = {
 
 export default function Home() {
     const router = useRouter();
-    const [selectedContract, setSelectedContract] = useState<Contract>();
 
     const [modalNewContractShown, showModalNewContract] = useState(false);
     const [modalNewDisputeShown, showModalNewDispute] = useState(false);
@@ -103,17 +101,9 @@ export default function Home() {
                     </div>
 
                     <div className="flex gap-8 my-8">
-                        <SponsoredContractsListView
-                            publicKey={publicKey}
-                            setSelectedContract={setSelectedContract}
-                        />
-                        <SponsoredContractsListView
-                            publicKey={publicKey}
-                            setSelectedContract={setSelectedContract}
-                        />
+                        <SponsoredContractsListView publicKey={publicKey} />
+                        <SponsoredContractsListView publicKey={publicKey} />
                     </div>
-
-                    <ContractInformation contract={selectedContract} />
                 </>
             )}
 

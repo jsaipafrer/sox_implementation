@@ -1,32 +1,44 @@
-import contract from "./contracts/OptimisticSOX.json";
-import { PUBLIC_CLIENT, SPONSOR_ACCOUNT, SPONSOR_WALLET } from "./config";
-import { getContractAddress, parseEther } from "viem";
+import { abi, bytecode } from "./contracts/OptimisticSOX.json";
+import { SPONSOR_WALLET } from "./config";
+import { ContractFactory, ethers } from "ethers";
+import { bytesArraysAreEqual, linkLibrary } from "../helpers";
 
-const ABI = contract.abi;
-const BYTECODE = contract.bytecode.object as `0x${string}`;
+const linkedBytecode = linkLibrary(bytecode.object, {
+    ["contracts/DisputeDeployer.sol:DisputeDeployer"]:
+        "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
+});
 
 export async function deployOptimisticContract(
     pkBuyer: string,
     pkVendor: string,
-    price: number
-): Promise<`0x${string}`> {
-    const tx_hash = await SPONSOR_WALLET.deployContract({
-        abi: ABI,
-        account: SPONSOR_ACCOUNT,
-        bytecode: BYTECODE,
-        args: [pkBuyer, pkVendor, price],
-        value: parseEther("1"),
-    });
-
-    const tx = await PUBLIC_CLIENT.getTransactionReceipt({
-        hash: tx_hash,
-    });
-
-    return tx.contractAddress!;
+    price: number,
+    completionTip: number,
+    disputeTip: number,
+    timeoutIncrement: number
+): Promise<string> {
+    return "";
+    // const tx_hash = await SPONSOR_WALLET.deployContract({
+    //     abi: ABI,
+    //     account: SPONSOR_ACCOUNT,
+    //     bytecode: BYTECODE,
+    //     args: [
+    //         pkBuyer,
+    //         pkVendor,
+    //         price,
+    //         completionTip,
+    //         disputeTip,
+    //         timeoutIncrement,
+    //     ],
+    //     value: parseEther("1"),
+    // });
+    // const tx = await PUBLIC_CLIENT.getTransactionReceipt({
+    //     hash: tx_hash,
+    // });
+    // return tx.contractAddress!;
 }
 
 export async function getBlockchainContractInfo(contractAddr: `0x${string}`) {
-    const state = await readFromContract(contractAddr, "getState");
+    const state = await readFromContract(contractAddr, "state");
     // const key = await readFromContract(contractAddr, "getKey");
 
     return {
@@ -36,9 +48,11 @@ export async function getBlockchainContractInfo(contractAddr: `0x${string}`) {
 }
 
 async function readFromContract(contractAddr: `0x${string}`, name: string) {
-    return await PUBLIC_CLIENT.readContract({
-        address: contractAddr,
-        abi: ABI,
-        functionName: name,
-    });
+    // return await PUBLIC_CLIENT.readContract({
+    //     address: contractAddr,
+    //     abi: ABI,
+    //     functionName: name,
+    // });
 }
+
+console.log(linkedBytecode);

@@ -94,8 +94,7 @@ export default function NonAcceptedPrecontractsListView({
             {modalShown && (
                 <NonAcceptedPrecontractModal
                     onClose={() => showModal(false)}
-                    contract={displayedContract!}
-                    publicKey={publicKey}
+                    contract={displayedContract}
                 ></NonAcceptedPrecontractModal>
             )}
         </>

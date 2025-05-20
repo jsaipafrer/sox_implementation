@@ -1,8 +1,8 @@
-import { concatBytes } from "viem";
 import {
     bigIntToUint8Array,
     bytesArraysAreEqual,
     uint8ArrayToBigInt,
+    concatBytes,
 } from "../../helpers";
 
 /**

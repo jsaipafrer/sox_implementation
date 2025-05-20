@@ -1,5 +1,5 @@
-import { bytesToHex, encodePacked, keccak256 } from "viem";
-import { bytesArraysAreEqual, fileToBytes } from "./helpers";
+import { keccak256, solidityPacked } from "ethers";
+import { bytesArraysAreEqual, fileToBytes, hexToBytes } from "./helpers";
 
 export async function commitFile(
     files: FileList,
@@ -10,9 +10,8 @@ export async function commitFile(
 }
 
 export function commit(data: Uint8Array, key: Uint8Array): Uint8Array {
-    return keccak256<"bytes">(
-        encodePacked(["bytes", "bytes"], [bytesToHex(data), bytesToHex(key)]),
-        "bytes"
+    return hexToBytes(
+        keccak256(solidityPacked(["bytes", "bytes"], [data, key]))
     );
 }
 

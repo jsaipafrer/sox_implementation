@@ -1,9 +1,14 @@
-import { concatBytes, keccak256 } from "viem";
-import { bytesArraysAreEqual, toBytes32 } from "./helpers";
+import { keccak256 } from "ethers";
+import {
+    bytesArraysAreEqual,
+    concatBytes,
+    hexToBytes,
+    toBytes32,
+} from "./helpers";
 
 // Returns the keccak256 hash of `v` after extending it 32 bytes
 function hash(v: Uint8Array): Uint8Array {
-    return keccak256<"bytes">(toBytes32(v), "bytes");
+    return hexToBytes(keccak256(toBytes32(v)));
 }
 
 // Returns hash(left32||right32) where xxx32 is xxx extended/shrinked

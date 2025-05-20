@@ -11,6 +11,7 @@ import {
     bytesToBlocks,
     bytesToHex,
     circuitToBytesArray,
+    concatBytes,
     fileToBytes,
     padBytes,
 } from "../../lib/helpers";
@@ -18,7 +19,6 @@ import { encrypt, generateKey } from "../../lib/encryption";
 import { acc } from "../../lib/accumulator";
 import { compileBasicCircuit } from "../../lib/circuits/compilator";
 import { BLOCK_SIZE } from "../../lib/circuits/components/aes-ctr";
-import { concatBytes } from "viem";
 import { sha256CircuitPadding } from "../../lib/circuits/components/sha256";
 
 interface NewContractModalProps {

@@ -1,5 +1,16 @@
-import { concatBytes } from "viem";
 import { Circuit, Gate } from "./circuits/evaluator";
+import { ethers, getAddress, solidityPackedKeccak256 } from "ethers";
+
+export function concatBytes(data: Uint8Array[]): Uint8Array {
+    const res = [];
+    for (let d of data) {
+        for (let b of d) {
+            res.push(b);
+        }
+    }
+
+    return new Uint8Array(res);
+}
 
 export function hexToBytes(hex: string): Uint8Array {
     if (hex[1] == "x") hex = hex.slice(2);
@@ -138,4 +149,32 @@ export function padBytes(bytes: Uint8Array, length: number, right?: boolean) {
 
     const padding = new Uint8Array(length - bytes.length);
     return concatBytes(right ? [bytes, padding] : [padding, bytes]);
+}
+
+export function linkLibrary(
+    bytecode: string,
+    libraries: {
+        [name: string]: string;
+    } = {}
+): string {
+    let linkedBytecode = bytecode;
+    for (const [name, address] of Object.entries(libraries)) {
+        const placeholder = `__\$${solidityPackedKeccak256(
+            ["string"],
+            [name]
+        ).slice(2, 36)}\$__`;
+        const formattedAddress = getAddress(address)
+            .toLowerCase()
+            .replace("0x", "");
+        if (linkedBytecode.indexOf(placeholder) === -1) {
+            throw new Error(`Unable to find placeholder for library ${name}`);
+        }
+        while (linkedBytecode.indexOf(placeholder) !== -1) {
+            linkedBytecode = linkedBytecode.replace(
+                placeholder,
+                formattedAddress
+            );
+        }
+    }
+    return linkedBytecode;
 }

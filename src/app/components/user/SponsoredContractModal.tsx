@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
-import FormTextField from "../common/FormTextField";
-import FormSelect from "../common/FormSelect";
-import FormFileInput from "../common/FormFileInput";
-import { Contract } from "./NonAcceptedPrecontractsListView";
+import { Contract } from "./SponsoredContractsListView";
 import {
     bytesToBlocks,
     circuitToBytesArray,
@@ -16,17 +12,21 @@ import { BLOCK_SIZE } from "@/app/lib/encryption";
 import { acc } from "@/app/lib/accumulator";
 import { compileBasicCircuit } from "@/app/lib/circuits/compilator";
 import { openCommitment } from "@/app/lib/commitment";
+import { useState } from "react";
 
-interface NonAcceptedPrecontractModalProps {
+interface SponsoredContractModalProps {
     onClose: () => void;
     contract?: Contract;
 }
 
-export default function NonAcceptedPrecontractModal({
+export default function SponsoredContractModal({
     onClose,
     contract,
-}: NonAcceptedPrecontractModalProps) {
+}: SponsoredContractModalProps) {
     if (!contract) return;
+
+    const [detailsShown, setShowDetails] = useState(false);
+
     const {
         id,
         pk_buyer,
@@ -43,43 +43,8 @@ export default function NonAcceptedPrecontractModal({
         optimistic_smart_contract,
     } = contract;
 
-    const handleVerifyCommitment = async () => {
-        const fileHex = (
-            await (
-                await fetch(`/api/files/${id}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-            ).json()
-        ).file;
-
-        const commitmentHex = (
-            await (
-                await fetch(`/api/commitments/${id}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-            ).json()
-        ).commitment;
-
-        const ctCircuit = hexToBytes(fileHex);
-        const ctBlocks = bytesToBlocks(ctCircuit, BLOCK_SIZE);
-        const hCt = acc(ctBlocks);
-
-        // compile circuit and compute accumulator
-        const circuit = compileBasicCircuit(ctBlocks.length - 1);
-        const hCircuit = acc(circuitToBytesArray(circuit.circuit));
-
-        try {
-            openCommitment(hexToBytes(commitmentHex), [hCircuit, hCt]);
-            alert("Commitment is correct!");
-        } catch {
-            alert("!!! Commitment is incorrect !!!");
-        }
+    const handleShowdetails = async () => {
+        setShowDetails(true);
     };
 
     const handleAccept = async () => {
@@ -109,28 +74,28 @@ export default function NonAcceptedPrecontractModal({
     };
 
     return (
-        <Modal title="Non accepted precontract details" onClose={onClose}>
+        <Modal title={`Contract ${id} details`} onClose={onClose}>
             <div className="space-y-4 grid grid-cols-2 gap-4">
                 <div>
                     <strong>Contract ID:</strong> {id}
                 </div>
                 <div>
-                    <strong>Buyer:</strong> {pk_buyer}
+                    <strong>Smart contract address:</strong> {pk_buyer}
                 </div>
                 <div>
-                    <strong>Vendor:</strong> {pk_vendor}
+                    <strong>Buyer:</strong> {pk_vendor}
                 </div>
                 <div>
-                    <strong>Item Description:</strong> {item_description}
+                    <strong>Vendor:</strong> {item_description}
                 </div>
                 <div>
                     <strong>Price:</strong> {price}
                 </div>
                 <div>
-                    <strong>Tip Completion:</strong> {tip_completion}
+                    <strong>Completion tip:</strong> {tip_completion}
                 </div>
                 <div>
-                    <strong>Tip Dispute:</strong> {tip_dispute}
+                    <strong>Dispute tip:</strong> {tip_dispute}
                 </div>
                 <div>
                     <strong>Protocol Version:</strong> {protocol_version}
@@ -152,10 +117,7 @@ export default function NonAcceptedPrecontractModal({
                     {optimistic_smart_contract || "N/A"}
                 </div>
                 <div className="col-span-2">
-                    <Button
-                        label="Verify commitment"
-                        onClick={handleVerifyCommitment}
-                    />
+                    <Button label="Show details" onClick={handleShowdetails} />
                 </div>
 
                 <div className="col-span-2 flex gap-8">

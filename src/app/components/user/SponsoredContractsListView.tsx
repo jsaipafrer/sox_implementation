@@ -2,8 +2,9 @@
 
 import Button from "../common/Button";
 import { SetStateAction, useEffect, useState } from "react";
+import SponsoredContractModal from "./SponsoredContractModal";
 
-type Contract = {
+export type Contract = {
     id: number;
     pk_buyer: string;
     pk_vendor: string;
@@ -20,15 +21,15 @@ type Contract = {
 };
 
 interface SponsoredContractsListViewProps {
-    setSelectedContract: (id: SetStateAction<Contract | undefined>) => void;
     publicKey: string;
 }
 
 export default function SponsoredContractsListView({
-    setSelectedContract,
     publicKey,
 }: SponsoredContractsListViewProps) {
     const [contracts, setContracts] = useState<Contract[]>([]);
+    const [displayedContract, setSelectedContract] = useState<Contract>();
+    const [modalShown, showModal] = useState(false);
 
     const fetchContracts = () => {
         fetch(`/api/sponsored-contracts/ongoing?pk=${publicKey}`)
@@ -36,10 +37,9 @@ export default function SponsoredContractsListView({
             .then((data) => setContracts(data));
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Enter") {
-            fetchContracts();
-        }
+    const handleShowDetails = (c: Contract) => {
+        setSelectedContract(c);
+        showModal(true);
     };
 
     useEffect(() => {
@@ -48,12 +48,10 @@ export default function SponsoredContractsListView({
         };
 
         handleReloadData();
-        window.addEventListener("keydown", handleKeyDown);
         window.addEventListener("reloadData", handleReloadData);
 
         return () => {
             window.removeEventListener("reloadData", handleReloadData);
-            window.removeEventListener("keydown", handleKeyDown);
         };
     }, [publicKey]);
 
@@ -90,7 +88,7 @@ export default function SponsoredContractsListView({
                                     <Button
                                         label="Show details"
                                         onClick={() => {
-                                            setSelectedContract(c);
+                                            handleShowDetails(c);
                                         }}
                                         width="95/100"
                                     />
@@ -100,6 +98,13 @@ export default function SponsoredContractsListView({
                     </tbody>
                 </table>
             </div>
+
+            {modalShown && (
+                <SponsoredContractModal
+                    onClose={() => showModal(false)}
+                    contract={displayedContract}
+                />
+            )}
         </>
     );
 }

@@ -55,7 +55,10 @@ export default function SponsorContractsListView() {
         const contractAddress = await deployOptimisticContract(
             contractInfo.pk_buyer,
             contractInfo.pk_vendor,
-            contractInfo.price as number
+            contractInfo.price as number,
+            contractInfo.tip_completion as number,
+            contractInfo.tip_dispute as number,
+            contractInfo.timeout_delay as number
         );
 
         await fetch(`/api/sponsored-contracts/${selectedContract}`, {
