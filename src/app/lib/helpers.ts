@@ -150,31 +150,3 @@ export function padBytes(bytes: Uint8Array, length: number, right?: boolean) {
     const padding = new Uint8Array(length - bytes.length);
     return concatBytes(right ? [bytes, padding] : [padding, bytes]);
 }
-
-export function linkLibrary(
-    bytecode: string,
-    libraries: {
-        [name: string]: string;
-    } = {}
-): string {
-    let linkedBytecode = bytecode;
-    for (const [name, address] of Object.entries(libraries)) {
-        const placeholder = `__\$${solidityPackedKeccak256(
-            ["string"],
-            [name]
-        ).slice(2, 36)}\$__`;
-        const formattedAddress = getAddress(address)
-            .toLowerCase()
-            .replace("0x", "");
-        if (linkedBytecode.indexOf(placeholder) === -1) {
-            throw new Error(`Unable to find placeholder for library ${name}`);
-        }
-        while (linkedBytecode.indexOf(placeholder) !== -1) {
-            linkedBytecode = linkedBytecode.replace(
-                placeholder,
-                formattedAddress
-            );
-        }
-    }
-    return linkedBytecode;
-}
