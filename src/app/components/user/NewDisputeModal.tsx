@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Modal, { ModalProps } from "./Modal";
-import Button from "./Button";
-import FormInput from "./FormTextField";
+import Modal, { ModalProps } from "../common/Modal";
+import Button from "../common/Button";
+import FormInput from "../common/FormTextField";
 
 interface NewDisputeModalProps {
     onClose: () => void;

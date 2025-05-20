@@ -1,7 +1,7 @@
 "use client";
 
-import Button from "./Button";
-import { useEffect, useState } from "react";
+import Button from "../common/Button";
+import { SetStateAction, useEffect, useState } from "react";
 
 type Contract = {
     id: number;
@@ -16,39 +16,30 @@ type Contract = {
     algorithm_suite: string;
     accepted: number;
     sponsor: string;
-    optimistic_smart_contract?: string;
+    optimistic_smart_contract: string | null;
 };
 
-interface UserUnsponsoredContractsListViewProps {
+interface SponsoredContractsListViewProps {
+    setSelectedContract: (id: SetStateAction<Contract | undefined>) => void;
     publicKey: string;
 }
 
-export default function UserUnsponsoredContractsListView({
+export default function SponsoredContractsListView({
+    setSelectedContract,
     publicKey,
-}: UserUnsponsoredContractsListViewProps) {
+}: SponsoredContractsListViewProps) {
     const [contracts, setContracts] = useState<Contract[]>([]);
 
     const fetchContracts = () => {
-        fetch(`/api/unsponsored-contracts?pk=${publicKey}`)
+        fetch(`/api/sponsored-contracts/ongoing?pk=${publicKey}`)
             .then((res) => res.json())
             .then((data) => setContracts(data));
     };
 
-    const deleteOffer = async (id: number) => {
-        const response = await (
-            await fetch(`/api/unsponsored-contracts/${id}`, {
-                method: "DELETE",
-            })
-        ).json();
-
-        if (response.success)
-            alert(`Unsponsored contract ${id} successfully deleted`);
-        else
-            alert(
-                "Something wrong happened when deleting the unsponsored contract"
-            );
-
-        window.dispatchEvent(new Event("reloadData"));
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Enter") {
+            fetchContracts();
+        }
     };
 
     useEffect(() => {
@@ -57,10 +48,12 @@ export default function UserUnsponsoredContractsListView({
         };
 
         handleReloadData();
+        window.addEventListener("keydown", handleKeyDown);
         window.addEventListener("reloadData", handleReloadData);
 
         return () => {
             window.removeEventListener("reloadData", handleReloadData);
+            window.removeEventListener("keydown", handleKeyDown);
         };
     }, [publicKey]);
 
@@ -68,15 +61,18 @@ export default function UserUnsponsoredContractsListView({
         <>
             <div className="bg-gray-300 p-4 rounded w-1/2 overflow-auto">
                 <h2 className="text-lg font-semibold mb-4">
-                    Unsponsored contracts
+                    Sponsored contracts
                 </h2>
 
                 <table className="w-full table-fixed border-collapse">
                     <thead>
                         <tr className="border-b border-black text-left font-medium">
-                            <th className="p-2 w-1/3">ID</th>
-                            <th className="p-2 w-1/3">Tip</th>
-                            <th className="p-2 w-1/3"></th>
+                            <th className="p-2 w-1/6">ID</th>
+                            <th className="p-2 w-1/3">
+                                Smart contract address
+                            </th>
+                            <th className="p-2 w-1/6">State</th>
+                            <th className="p-2 w-1/6"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -85,15 +81,16 @@ export default function UserUnsponsoredContractsListView({
                                 key={c.id}
                                 className="even:bg-gray-200 border-b border-black h-15"
                             >
-                                <td className="p-2 w-1/3">{c.id}</td>
-                                <td className="p-2 w-1/3">
-                                    {c.tip_completion}
+                                <td className="p-2 w-1/5">{c.id}</td>
+                                <td className="p-2 w-1/5">
+                                    {c.optimistic_smart_contract}
                                 </td>
-                                <td className="p-2 w-1/3 text-center">
+                                <td className="p-2 w-1/5">{c.timeout_delay}</td>
+                                <td className="p-2 w-1/5 text-center">
                                     <Button
-                                        label="Delete"
+                                        label="Show details"
                                         onClick={() => {
-                                            deleteOffer(c.id);
+                                            setSelectedContract(c);
                                         }}
                                         width="95/100"
                                     />

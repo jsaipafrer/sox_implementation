@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Modal from "./Modal";
-import Button from "./Button";
-import FormInput from "./FormTextField";
-import { bytesToBlocks, circuitToBytesArray, hexToBytes } from "../lib/helpers";
-import { acc } from "../lib/accumulator";
-import { BLOCK_SIZE } from "../lib/encryption";
-import { compileBasicCircuit } from "../lib/circuits/compilator";
-import { open } from "../lib/commitment";
+import Modal from "../common/Modal";
+import Button from "../common/Button";
+import FormInput from "../common/FormTextField";
+import {
+    bytesToBlocks,
+    circuitToBytesArray,
+    hexToBytes,
+} from "../../lib/helpers";
+import { acc } from "../../lib/accumulator";
+import { BLOCK_SIZE } from "../../lib/encryption";
+import { compileBasicCircuit } from "../../lib/circuits/compilator";
+import { openCommitment } from "../../lib/commitment";
 
 interface NewContractModalProps {
     onClose: () => void;
@@ -95,7 +99,7 @@ export default function SearchContractModal({
         const hCircuit = acc(circuitToBytesArray(circuit.circuit));
 
         try {
-            open(hexToBytes(commitmentHex), [hCircuit, hCt]);
+            openCommitment(hexToBytes(commitmentHex), [hCircuit, hCt]);
             alert("Commitment is correct!");
         } catch {
             alert("!!! Commitment is incorrect !!!");

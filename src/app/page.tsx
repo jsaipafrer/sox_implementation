@@ -1,13 +1,9 @@
 "use client";
 
-import SponsorContractsListView from "./components/SponsorContractsListView";
-import DisputeListView from "./components/DisputeListView";
-import Button from "./components/Button";
+import SponsorContractsListView from "./components/sponsor/SponsorContractsListView";
+import DisputeListView from "./components/sponsor/DisputeListView";
+import Button from "./components/common/Button";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import NewContractModal from "./components/NewContractModal";
-import NewDisputeModal from "./components/NewDisputeModal";
-import SearchContractModal from "./components/SearchContractModal";
 
 export default function Home() {
     const router = useRouter();

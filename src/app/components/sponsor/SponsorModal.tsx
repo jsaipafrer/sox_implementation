@@ -1,6 +1,6 @@
 import { useState } from "react";
-import Modal from "./Modal";
-import Button from "./Button";
+import Modal from "../common/Modal";
+import Button from "../common/Button";
 
 interface SponsorModalProps {
     title: string;

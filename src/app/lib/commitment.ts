@@ -16,7 +16,7 @@ export function commit(data: Uint8Array, key: Uint8Array): Uint8Array {
     );
 }
 
-export function open(
+export function openCommitment(
     commitment: Uint8Array,
     openingValue: [Uint8Array, Uint8Array]
 ): [Uint8Array, Uint8Array] {

@@ -1,9 +1,9 @@
 "use client";
 
-import Button from "./Button";
+import Button from "../common/Button";
 import { useEffect, useState } from "react";
 import SponsorModal from "./SponsorModal";
-import { deployOptimisticContract } from "../lib/blockchain/optimistic";
+import { deployOptimisticContract } from "../../lib/blockchain/optimistic";
 
 type Contract = {
     id: number;

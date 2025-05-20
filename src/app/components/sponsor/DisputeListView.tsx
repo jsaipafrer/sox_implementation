@@ -1,11 +1,11 @@
 "use client";
 
-import Button from "./Button";
+import Button from "../common/Button";
 import { useEffect, useState } from "react";
-import Modal from "./Modal";
+import Modal from "../common/Modal";
 import SponsorModal from "./SponsorModal";
-import { Gate, evaluateCircuit } from "../lib/circuits/evaluator";
-import { bytesToHex } from "../lib/helpers";
+import { Gate, evaluateCircuit } from "../../lib/circuits/evaluator";
+import { bytesToHex } from "../../lib/helpers";
 
 type Dispute = {
     contract_id: number;

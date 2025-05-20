@@ -2,9 +2,19 @@
 
 import { hexToBytes } from "@/app/lib/helpers";
 import db from "../../lib/sqlite";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import { UPLOADS_PATH } from "../files/[id]/route";
+
+export async function GET(req: NextRequest) {
+    const pk = await req.nextUrl.searchParams.get("pk");
+    const stmt = db.prepare(`SELECT * FROM contracts 
+        WHERE pk_buyer = ? AND accepted = 0`);
+
+    const contracts = stmt.all(pk);
+
+    return NextResponse.json(contracts);
+}
 
 export async function PUT(req: Request) {
     const data = await req.json();

@@ -1,15 +1,16 @@
 "use client";
 
-import Button from "../components/Button";
+import Button from "../components/common/Button";
 import { useRouter } from "next/navigation";
-import UserContractsListView from "../components/UserContractsListView";
-import ContractInformation from "../components/ContractInformation";
+import SponsoredContractsListView from "../components/user/SponsoredContractsListView";
+import ContractInformation from "../components/user/ContractInformation";
 import { useState } from "react";
-import NewDisputeModal from "../components/NewDisputeModal";
-import SearchContractModal from "../components/SearchContractModal";
-import NewContractModal from "../components/NewContractModal";
-import FormTextField from "../components/FormTextField";
-import UserUnsponsoredContractsListView from "../components/PendingPrecontractsListView";
+import NewDisputeModal from "../components/user/NewDisputeModal";
+import SearchContractModal from "../components/user/SearchContractModal";
+import NewContractModal from "../components/user/NewContractModal";
+import FormTextField from "../components/common/FormTextField";
+import UnsponsoredContractsListView from "../components/user/UnsponsoredContractsListView";
+import NonAcceptedPrecontractsListView from "../components/user/NonAcceptedPrecontractsListView";
 
 type Contract = {
     id: number;
@@ -35,7 +36,9 @@ export default function Home() {
     const [modalNewDisputeShown, showModalNewDispute] = useState(false);
     const [modalSearchContractShown, showModalSearchContract] = useState(false);
     const [isLoggedIn, setLoggedIn] = useState(false);
-    const [publicKey, setPublicKey] = useState("");
+    const [publicKey, setPublicKey] = useState(
+        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    );
 
     const logIn = () => {
         // TODO signature and stuff
@@ -92,21 +95,19 @@ export default function Home() {
                     </div>
 
                     <div className="flex gap-8 my-8">
-                        <UserUnsponsoredContractsListView
+                        <NonAcceptedPrecontractsListView
                             publicKey={publicKey}
                         />
 
-                        <UserUnsponsoredContractsListView
-                            publicKey={publicKey}
-                        />
+                        <UnsponsoredContractsListView publicKey={publicKey} />
                     </div>
 
                     <div className="flex gap-8 my-8">
-                        <UserContractsListView
+                        <SponsoredContractsListView
                             publicKey={publicKey}
                             setSelectedContract={setSelectedContract}
                         />
-                        <UserContractsListView
+                        <SponsoredContractsListView
                             publicKey={publicKey}
                             setSelectedContract={setSelectedContract}
                         />

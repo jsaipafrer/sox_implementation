@@ -1,25 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import Modal from "./Modal";
-import Button from "./Button";
-import FormTextField from "./FormTextField";
-import FormSelect from "./FormSelect";
-import FormFileInput from "./FormFileInput";
-import { commit } from "../lib/commitment";
+import Modal from "../common/Modal";
+import Button from "../common/Button";
+import FormTextField from "../common/FormTextField";
+import FormSelect from "../common/FormSelect";
+import FormFileInput from "../common/FormFileInput";
+import { commit } from "../../lib/commitment";
 import {
     bytesToBlocks,
     bytesToHex,
     circuitToBytesArray,
     fileToBytes,
     padBytes,
-} from "../lib/helpers";
-import { encrypt, generateKey } from "../lib/encryption";
-import { acc } from "../lib/accumulator";
-import { compileBasicCircuit } from "../lib/circuits/compilator";
-import { BLOCK_SIZE } from "../lib/circuits/components/aes-ctr";
+} from "../../lib/helpers";
+import { encrypt, generateKey } from "../../lib/encryption";
+import { acc } from "../../lib/accumulator";
+import { compileBasicCircuit } from "../../lib/circuits/compilator";
+import { BLOCK_SIZE } from "../../lib/circuits/components/aes-ctr";
 import { concatBytes } from "viem";
-import { sha256CircuitPadding } from "../lib/circuits/components/sha256";
+import { sha256CircuitPadding } from "../../lib/circuits/components/sha256";
 
 interface NewContractModalProps {
     onClose: () => void;
