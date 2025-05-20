@@ -12,10 +12,6 @@ import SearchContractModal from "./components/SearchContractModal";
 export default function Home() {
     const router = useRouter();
 
-    const [modalNewContractShown, showModalNewContract] = useState(false);
-    const [modalNewDisputeShown, showModalNewDispute] = useState(false);
-    const [modalSearchContractShown, showModalSearchContract] = useState(false);
-
     return (
         <main className="p-4 min-h-screen">
             <h1 className="text-xl font-bold mb-4">Sponsored fair exchange</h1>
@@ -33,61 +29,10 @@ export default function Home() {
                 />
             </div>
 
-            <div className="flex gap-8 justify-between items-center">
-                <Button
-                    label="+ New pre-contract"
-                    onClick={() => showModalNewContract(true)}
-                />
-                <Button
-                    label="Search pre-contract"
-                    onClick={() => showModalSearchContract(true)}
-                />
-                <Button
-                    label="+ New dispute"
-                    onClick={() => showModalNewDispute(true)}
-                />
-            </div>
-
             <div className="flex gap-8 my-8">
                 <SponsorContractsListView />
                 <DisputeListView />
             </div>
-
-            {/* <div className="flex gap-8 justify-between items-center">
-                <Button
-                    label="Compile circuit"
-                    onClick={() => showModalNewContract(true)}
-                />
-                <Button
-                    label="Search pre-contract"
-                    onClick={() => showModalSearchContract(true)}
-                />
-                <Button
-                    label="+ New dispute"
-                    onClick={() => showModalNewDispute(true)}
-                />
-            </div> */}
-
-            {modalNewContractShown && (
-                <NewContractModal
-                    title="New contract"
-                    onClose={() => showModalNewContract(false)}
-                ></NewContractModal>
-            )}
-
-            {modalSearchContractShown && (
-                <SearchContractModal
-                    title="Search contract"
-                    onClose={() => showModalSearchContract(false)}
-                ></SearchContractModal>
-            )}
-
-            {modalNewDisputeShown && (
-                <NewDisputeModal
-                    title="New dispute"
-                    onClose={() => showModalNewDispute(false)}
-                ></NewDisputeModal>
-            )}
         </main>
     );
 }

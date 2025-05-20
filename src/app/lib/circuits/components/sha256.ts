@@ -200,12 +200,12 @@ function wordToBytes(word: Word): Uint8Array {
 
 /*
 Data format:
-data = [previous block (optional; 32 bytes), block (512 bytes)]
+data = [previous block (optional; 32 bytes), block (64 bytes)]
 */
 export async function sha256Compression(
     data: Uint8Array[]
 ): Promise<Uint8Array> {
-    const nextBlock = data.slice(-1)[0];
+    const nextBlock = data.length > 1 ? data[1] : data[0];
     const paddedBlock = Array.from(nextBlock.slice(0, BLOCK_SIZE));
     while (paddedBlock.length < BLOCK_SIZE) paddedBlock.push(0);
 

@@ -1,8 +1,40 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-contract OptimisticSOX {
-    // TODO what about the sponsorship part ?
+import {DisputeDeployer} from "./DisputeDeployer.sol";
+
+/**
+ * @dev Enum representing the different states of the optimistic process
+ */
+enum OptimisticState {
+    WaitPayment,
+    WaitKey,
+    WaitSB,
+    WaitSBFee,
+    WaitSV,
+    WaitSVFee,
+    WaitDisputeStart,
+    InDispute,
+    End
+}
+
+interface IOptimisticSOX {
+    function buyer() external view returns (address);
+    function vendor() external view returns (address);
+    function sponsor() external view returns (address);
+    function buyerDisputeSponsor() external view returns (address);
+    function vendorDisputeSponsor() external view returns (address);
+
+    function agreedPrice() external view returns (uint256);
+    function timeoutIncrement() external view returns (uint256);
+
+    function currState() external view returns (OptimisticState);
+
+    function endDispute() external;
+}
+
+contract OptimisticSOX is IOptimisticSOX {
+    // TODO sponsorship/refunds
 
     // TODO: SET THE NECESSARY VALUES AND CONSTANTS
     uint256 constant SPONSOR_FEES = 5 wei; // dummy value
@@ -14,40 +46,33 @@ contract OptimisticSOX {
     address public sponsor;
     address public buyerDisputeSponsor;
     address public vendorDisputeSponsor;
+    address public disputeContract;
 
-    // Finite state machine
-    enum State {
-        WaitPayment,
-        WaitKey,
-        WaitSB,
-        WaitSBFee,
-        WaitSV,
-        WaitSVFee,
-        InDispute,
-        // TODO add dispute resolution stuff
-        End
-    }
+    /**
+     * @dev The current state of the optimistic process
+     */
+    OptimisticState public currState;
 
-    State public currState;
-
-    bytes32 key;
-    uint256 agreedPrice;
+    // Values agreed in precontract
+    bytes public key;
+    uint256 public agreedPrice;
+    uint256 public completionTip;
+    uint256 public disputeTip;
+    uint256 public timeoutIncrement;
 
     // Money states
-    uint256 sponsorDeposit;
-    uint256 buyerDeposit;
-    uint256 sbDeposit;
-    uint256 svDeposit;
-    uint256 sponsorTip;
-    uint256 sbTip;
-    uint256 svTip;
+    uint256 public sponsorDeposit;
+    uint256 public buyerDeposit;
+    uint256 public sbDeposit;
+    uint256 public svDeposit;
+    uint256 public sponsorTip;
+    uint256 public sbTip;
+    uint256 public svTip;
 
-    // TODO: MANAGE TIMEOUTS
-    uint256 public timeout;
+    // Next time the timeout is triggered (unless state changes)
+    uint256 public nextTimeoutTime;
 
-    uint256 someTime = 10 seconds;
-
-    modifier onlyExpected(address _sender, State _state) {
+    modifier onlyExpected(address _sender, OptimisticState _state) {
         require(msg.sender == _sender, "Unexpected sender");
         require(
             currState == _state,
@@ -56,119 +81,184 @@ contract OptimisticSOX {
         _;
     }
 
-    function nextState(State _s, uint256 _timeout) internal {
+    function nextState(OptimisticState _s) internal {
         currState = _s;
-        timeout = block.timestamp + _timeout;
+        nextTimeoutTime = block.timestamp + timeoutIncrement;
     }
 
-    constructor(address _buyer, address _vendor, uint256 _agreedPrice) payable {
+    constructor(
+        address _buyer,
+        address _vendor,
+        uint256 _agreedPrice,
+        uint256 _completionTip,
+        uint256 _disputeTip,
+        uint256 _timeoutIncrement
+    ) payable {
         require(msg.value >= SPONSOR_FEES, "Not enough money to cover fees");
-        sponsorDeposit = msg.value; // TODO how and when to decrement this
+        sponsorDeposit = msg.value;
         sponsor = msg.sender;
         buyer = _buyer;
         vendor = _vendor;
         agreedPrice = _agreedPrice;
-        nextState(State.WaitPayment, someTime);
+        completionTip = _completionTip;
+        disputeTip = _disputeTip;
+        timeoutIncrement = _timeoutIncrement;
+        nextState(OptimisticState.WaitPayment);
     }
 
     function sendPayment()
         public
         payable
-        onlyExpected(buyer, State.WaitPayment)
+        onlyExpected(buyer, OptimisticState.WaitPayment)
     {
         require(
-            msg.value >= agreedPrice,
-            "Agreed price is higher than deposit"
+            msg.value >= agreedPrice + completionTip,
+            "Agreed price and completion tip is higher than deposit"
         );
 
         buyerDeposit = msg.value;
         sponsorTip = buyerDeposit - agreedPrice;
 
-        nextState(State.WaitKey, someTime);
+        nextState(OptimisticState.WaitKey);
     }
 
-    function sendKey(bytes32 _key) public onlyExpected(vendor, State.WaitKey) {
-        // assuming key is of size <= 256b
+    function sendKey(
+        bytes calldata _key
+    ) public onlyExpected(vendor, OptimisticState.WaitKey) {
         key = _key;
-        nextState(State.WaitSB, someTime);
+        nextState(OptimisticState.WaitSB);
     }
 
     function registerBuyerDisputeSponsor(
         address _sb
-    ) public payable onlyExpected(buyer, State.WaitSB) {
+    ) public payable onlyExpected(buyer, OptimisticState.WaitSB) {
+        require(
+            msg.value >= disputeTip,
+            "Agreed dispute tip is higher than deposit"
+        );
+
         sbTip = msg.value;
         buyerDisputeSponsor = _sb;
-        nextState(State.WaitSBFee, someTime);
+
+        nextState(OptimisticState.WaitSBFee);
     }
 
     function sendBuyerDisputeSponsorFee()
         public
         payable
-        onlyExpected(buyerDisputeSponsor, State.WaitSBFee)
+        onlyExpected(buyerDisputeSponsor, OptimisticState.WaitSBFee)
     {
         require(
             msg.value >= DISPUTE_FEES,
             "Not enough money deposited to cover dispute fees"
         );
+
         sbDeposit = msg.value;
-        nextState(State.WaitSV, someTime);
+        nextState(OptimisticState.WaitSV);
     }
 
     function registerVendorDisputeSponsor(
         address _sv
-    ) public payable onlyExpected(vendor, State.WaitSV) {
+    ) public payable onlyExpected(vendor, OptimisticState.WaitSV) {
+        require(
+            msg.value >= disputeTip,
+            "Agreed dispute tip is higher than deposit"
+        );
+
         svTip = msg.value;
         vendorDisputeSponsor = _sv;
-        nextState(State.WaitSVFee, someTime);
+
+        nextState(OptimisticState.WaitSVFee);
     }
 
     function sendVendorDisputeSponsorFee()
         public
         payable
-        onlyExpected(vendorDisputeSponsor, State.WaitSVFee)
+        onlyExpected(vendorDisputeSponsor, OptimisticState.WaitSVFee)
     {
         require(
             msg.value >= DISPUTE_FEES,
             "Not enough money deposited to cover dispute fees"
         );
+
         svDeposit = msg.value;
-        // TODO go to dispute resolution
+
+        nextState(OptimisticState.WaitDisputeStart);
+    }
+
+    function startDispute(
+        uint256 _numBlocks,
+        uint256 _numGates,
+        bytes32 _commitment
+    ) public {
+        require(
+            currState == OptimisticState.WaitDisputeStart,
+            "Contract is not waiting for a dispute to start"
+        );
+        require(
+            msg.sender == buyerDisputeSponsor ||
+                msg.sender == vendorDisputeSponsor,
+            "Only a dispute sponsor can start the dispute"
+        );
+
+        disputeContract = DisputeDeployer.deployDispute(
+            _numBlocks,
+            _numGates,
+            _commitment
+        );
+
+        nextState(OptimisticState.InDispute);
+    }
+
+    function endDispute()
+        public
+        onlyExpected(disputeContract, OptimisticState.InDispute)
+    {
+        nextState(OptimisticState.End);
     }
 
     function completeTransaction() public {
         require(
-            currState == State.WaitSB || currState == State.WaitSBFee,
+            currState == OptimisticState.WaitSB ||
+                currState == OptimisticState.WaitSBFee,
             "Not in a state where the transaction can be completed"
         );
-        require(timeoutHasPassed(), "Timeout has not passed");
+
+        if (msg.sender != buyer) {
+            // only the buyer can complete before timeout
+            require(timeoutHasPassed(), "Timeout has not passed");
+        }
+
         payable(vendor).transfer(agreedPrice);
 
-        if (currState == State.WaitSBFee) {
+        if (currState == OptimisticState.WaitSBFee) {
             payable(buyer).transfer(sbTip);
         }
 
+        // consider that the remaining funds are for the sponsor
         payable(sponsor).transfer(address(this).balance);
-        nextState(State.End, 0);
+        nextState(OptimisticState.End);
     }
 
     function cancelTransaction() public {
         require(timeoutHasPassed(), "Timeout has not passed");
-        if (currState == State.WaitPayment) {
+
+        if (currState == OptimisticState.WaitPayment) {
             payable(sponsor).transfer(address(this).balance);
-            nextState(State.End, 0);
-        } else if (currState == State.WaitKey) {
+            return nextState(OptimisticState.End);
+        } else if (currState == OptimisticState.WaitKey) {
             payable(buyer).transfer(agreedPrice);
 
             payable(sponsor).transfer(address(this).balance);
-            nextState(State.End, 0);
-        } else if (currState == State.WaitSV) {
+            return nextState(OptimisticState.End);
+        } else if (currState == OptimisticState.WaitSV) {
             payable(buyerDisputeSponsor).transfer(sbDeposit + sbTip);
 
             payable(buyer).transfer(agreedPrice);
 
             payable(sponsor).transfer(address(this).balance);
-            nextState(State.End, 0);
-        } else if (currState == State.WaitSVFee) {
+            return nextState(OptimisticState.End);
+        } else if (currState == OptimisticState.WaitSVFee) {
             payable(buyerDisputeSponsor).transfer(sbDeposit + sbTip);
 
             payable(buyer).transfer(agreedPrice);
@@ -176,25 +266,13 @@ contract OptimisticSOX {
             payable(vendor).transfer(svTip);
 
             payable(sponsor).transfer(address(this).balance);
-            nextState(State.End, 0);
+            return nextState(OptimisticState.End);
         }
 
-        require(
-            false,
-            "Not in a state in which the transaction can be cancelled"
-        );
+        revert("Not in a state in which the transaction can be cancelled");
     }
 
     function timeoutHasPassed() public view returns (bool) {
-        return block.timestamp > timeout;
-    }
-
-    // getters
-    function getState() public view returns (State) {
-        return currState;
-    }
-
-    function getKey() public view returns (bytes32) {
-        return key;
+        return block.timestamp >= nextTimeoutTime;
     }
 }
