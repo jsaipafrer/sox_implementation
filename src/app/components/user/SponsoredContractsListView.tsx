@@ -3,6 +3,7 @@
 import Button from "../common/Button";
 import { SetStateAction, useEffect, useState } from "react";
 import SponsoredContractModal from "./SponsoredContractModal";
+import { getState } from "@/app/lib/blockchain/optimistic";
 
 export type Contract = {
     id: number;
@@ -17,8 +18,32 @@ export type Contract = {
     algorithm_suite: string;
     accepted: number;
     sponsor: string;
-    optimistic_smart_contract: string | null;
+    optimistic_smart_contract: string;
+    state?: bigint;
 };
+
+/*
+    WaitPayment,
+    WaitKey,
+    WaitSB,
+    WaitSBFee,
+    WaitSV,
+    WaitSVFee,
+    WaitDisputeStart,
+    InDispute,
+    End
+*/
+export const OPTIMISTIC_STATES = [
+    "Waiting for buyer payment",
+    "Waiting for vendor key",
+    "Waiting for buyer dispute sponsor",
+    "Waiting for buyer dispute sponsor's fee",
+    "Waiting for vendor dispute sponsor",
+    "Waiting for vendor dispute sponsor's fee",
+    "Waiting for dispute to start",
+    "In dispute",
+    "End",
+];
 
 interface SponsoredContractsListViewProps {
     publicKey: string;
@@ -31,10 +56,17 @@ export default function SponsoredContractsListView({
     const [displayedContract, setSelectedContract] = useState<Contract>();
     const [modalShown, showModal] = useState(false);
 
-    const fetchContracts = () => {
-        fetch(`/api/sponsored-contracts/ongoing?pk=${publicKey}`)
-            .then((res) => res.json())
-            .then((data) => setContracts(data));
+    const fetchContracts = async () => {
+        const contractsRaw = await fetch(
+            `/api/sponsored-contracts/ongoing?pk=${publicKey}`
+        );
+        const contracts = await contractsRaw.json();
+
+        for (let i = 0; i < contracts.length; ++i)
+            contracts[i].state = await getState(
+                contracts[i].optimistic_smart_contract
+            );
+        setContracts(contracts);
     };
 
     const handleShowDetails = (c: Contract) => {
@@ -65,12 +97,12 @@ export default function SponsoredContractsListView({
                 <table className="w-full table-fixed border-collapse">
                     <thead>
                         <tr className="border-b border-black text-left font-medium">
-                            <th className="p-2 w-1/6">ID</th>
-                            <th className="p-2 w-1/3">
+                            <th className="p-2 w-1/10">ID</th>
+                            <th className="p-2 w-5/10">
                                 Smart contract address
                             </th>
-                            <th className="p-2 w-1/6">State</th>
-                            <th className="p-2 w-1/6"></th>
+                            <th className="p-2 w-2/10">State</th>
+                            <th className="p-2 w-2/10"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -79,14 +111,18 @@ export default function SponsoredContractsListView({
                                 key={c.id}
                                 className="even:bg-gray-200 border-b border-black h-15"
                             >
-                                <td className="p-2 w-1/5">{c.id}</td>
-                                <td className="p-2 w-1/5">
+                                <td className="p-2 w-1/10">{c.id}</td>
+                                <td className="p-2 w-5/10 text-wrap">
                                     {c.optimistic_smart_contract}
                                 </td>
-                                <td className="p-2 w-1/5">{c.timeout_delay}</td>
-                                <td className="p-2 w-1/5 text-center">
+                                <td className="p-2 w-2/10 text-wrap">
+                                    {c.state != undefined
+                                        ? OPTIMISTIC_STATES[Number(c.state)]
+                                        : ""}
+                                </td>
+                                <td className="p-2 w-2/10 text-center">
                                     <Button
-                                        label="Show details"
+                                        label="More information"
                                         onClick={() => {
                                             handleShowDetails(c);
                                         }}
@@ -103,6 +139,7 @@ export default function SponsoredContractsListView({
                 <SponsoredContractModal
                     onClose={() => showModal(false)}
                     contract={displayedContract}
+                    publicKey={publicKey}
                 />
             )}
         </>
