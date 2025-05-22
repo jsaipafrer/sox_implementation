@@ -148,8 +148,8 @@ export function prove(values: Uint8Array[], indices: number[]): Uint8Array[][] {
             .map((i) => i >>> 1);
     }
 
-    // reversing the proof makes it easier (and cheaper) to verify on the smart contract
-    // instead of taking the first element and deleting it, just pop
+    // reversing the proof makes it easier (and cheaper) to verify on the smart
+    // contract as we can use pop instead of reading + deleting the list's head
     return proof;
 }
 

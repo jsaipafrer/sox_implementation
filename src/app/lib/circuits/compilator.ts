@@ -25,8 +25,8 @@ export interface CompiledCircuit {
  * SHA256 + comparison)
  */
 export function compileBasicCircuit(ctBlocksNumber: number): CompiledCircuit {
-    if (ctBlocksNumber < 1)
-        throw new Error("The ciphertext should be at least one block long");
+    if (ctBlocksNumber < 2)
+        throw new Error("The ciphertext should be at least two blocks long");
     //   m+1 dummy gates (m for the ciphertext, 1 for the counter)
     // + m-1 addition gates for incrementing the counter before AES (from 2nd one)
     // + m AES gates
@@ -99,6 +99,49 @@ export function compileBasicCircuit(ctBlocksNumber: number): CompiledCircuit {
             bigIntToUint8Array(BigInt(0), 32),  // -2: right padding constant
             undefined,                          // -3: key placeholder
             undefined,                          // -4: description placeholder
+        ],
+        version: 0,
+    };
+}
+
+export function compileSHAOnlyCircuit(ctBlocksNumber: number): CompiledCircuit {
+    if (ctBlocksNumber < 1)
+        throw new Error("The ciphertext should be at least one block long");
+
+    //   m dummy gates for ct
+    // + m SHA gates
+    // + 1 comparison gate
+    // = 2*m + 1
+    const circuit = new Array(2 * ctBlocksNumber);
+
+    // dummy gates
+    let i = 0;
+    for (; i < ctBlocksNumber; ++i) circuit[i] = [-1, []];
+
+    // SHA compression gates
+    // SHA256 compression gates
+    // first one only uses the output of the first gate
+    circuit[i] = [0, [0]];
+    ++i;
+    for (; i < 2 * ctBlocksNumber; ++i) {
+        circuit[i] = [
+            0,
+            // prettier-ignore
+            [
+                i - 1,                  // previous block
+                i - ctBlocksNumber,   // output of concat
+            ],
+        ];
+    }
+
+    // comparison gate
+    circuit[i] = [5, [i - 1, -1]];
+
+    return {
+        circuit,
+        // prettier-ignore
+        constants: [
+            undefined, // -1: description placeholder
         ],
         version: 0,
     };

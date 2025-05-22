@@ -61,8 +61,8 @@ function getEvaluatedSons(
 export async function evaluateCircuit(
     inputBlocks: Uint8Array[],
     { circuit, constants, version }: CompiledCircuit
-): Promise<[EvaluatedGate, EvaluatedCircuit?]> {
-    if (inputBlocks.length == 0) return [new Uint8Array(), undefined];
+): Promise<[EvaluatedGate, EvaluatedCircuit]> {
+    if (inputBlocks.length == 0) return [new Uint8Array(), []];
 
     if (!(0 <= version && version < VERSIONS_INSTRUCTIONS.length))
         throw new Error("Invalid version");

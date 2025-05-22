@@ -1,6 +1,7 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-ignition-ethers";
+import "hardhat-gas-reporter";
 
 const config: HardhatUserConfig = {
     solidity: {
@@ -74,15 +75,19 @@ const config: HardhatUserConfig = {
                 },
             ],
         },
-        anvil: {
-            url: "http://127.0.0.1:8545", // Anvil runs on port 8545 by default
-            // accounts: [
-            //     `0x${process.env.PRIVATE_KEY}`, // Replace with your private key
-            // ],
-            chainId: 31337, // Anvil's default chain ID
-        },
     },
-    defaultNetwork: "hardhat",
+    gasReporter: {
+        enabled: process.env.REPORT_GAS ? true : false,
+        coinmarketcap: "8160c5a0-05cc-4e77-a7c7-588e664c90f2",
+        L1Etherscan: "69IG94CSPRVEENXIU7IBI3QBYWG8ZKU8W4",
+        reportFormat: "markdown",
+        outputFile: "gasReport.md",
+        forceTerminalOutput: true,
+        forceTerminalOutputFormat: "terminal",
+    },
+    mocha: {
+        timeout: 3_600_000_000, // 1000h
+    },
 };
 
 export default config;
