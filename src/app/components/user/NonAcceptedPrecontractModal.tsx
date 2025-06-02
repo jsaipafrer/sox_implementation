@@ -7,15 +7,14 @@ import FormTextField from "../common/FormTextField";
 import FormSelect from "../common/FormSelect";
 import FormFileInput from "../common/FormFileInput";
 import { Contract } from "./NonAcceptedPrecontractsListView";
-import {
-    bytesToBlocks,
-    circuitToBytesArray,
-    hexToBytes,
-} from "@/app/lib/helpers";
-import { BLOCK_SIZE } from "@/app/lib/encryption";
-import { acc } from "@/app/lib/accumulator";
-import { compileBasicCircuit } from "@/app/lib/circuits/compilator";
-import { openCommitment } from "@/app/lib/commitment";
+import init, {
+    bytes_to_hex,
+    check_precontract,
+    hex_to_bytes,
+} from "@/app/lib/circuits/wasm/circuits";
+import { downloadFile } from "@/app/lib/helpers";
+
+const BLOCK_SIZE = 64;
 
 interface NonAcceptedPrecontractModalProps {
     onClose: () => void;
@@ -40,45 +39,45 @@ export default function NonAcceptedPrecontractModal({
         algorithm_suite,
         accepted,
         sponsor,
+        commitment,
         optimistic_smart_contract,
     } = contract;
 
     const handleVerifyCommitment = async () => {
-        const fileHex = (
-            await (
-                await fetch(`/api/files/${id}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-            ).json()
-        ).file;
+        await init();
+        const ct = hex_to_bytes(
+            (
+                await (
+                    await fetch(`/api/files/${id}`, {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    })
+                ).json()
+            ).file
+        );
 
-        const commitmentHex = (
-            await (
-                await fetch(`/api/commitments/${id}`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                })
-            ).json()
-        ).commitment;
+        const { success, h_circuit, h_ct } = check_precontract(
+            item_description,
+            commitment,
+            ct,
+            BLOCK_SIZE
+        );
 
-        const ctCircuit = hexToBytes(fileHex);
-        const ctBlocks = bytesToBlocks(ctCircuit, BLOCK_SIZE);
-        const hCt = acc(ctBlocks);
+        if (success) {
+            if (
+                confirm(
+                    "Commitment is correct! Do you want to download the encrypted file ?"
+                )
+            ) {
+                downloadFile(ct, "encrypted_file.bin");
+            }
 
-        // compile circuit and compute accumulator
-        const circuit = compileBasicCircuit(ctBlocks.length - 1);
-        const hCircuit = acc(circuitToBytesArray(circuit.circuit));
-
-        try {
-            openCommitment(hexToBytes(commitmentHex), [hCircuit, hCt]);
-            alert("Commitment is correct!");
-        } catch {
-            alert("!!! Commitment is incorrect !!!");
+            localStorage.setItem(`h_circuit_${id}`, bytes_to_hex(h_circuit));
+            localStorage.setItem(`h_ct_${id}`, bytes_to_hex(h_ct));
+        } else {
+            alert("!!! Commitment doesn't match the received file !!!");
         }
     };
 
@@ -140,16 +139,6 @@ export default function NonAcceptedPrecontractModal({
                 </div>
                 <div>
                     <strong>Algorithm Suite:</strong> {algorithm_suite}
-                </div>
-                <div>
-                    <strong>Accepted:</strong> {accepted != 0 ? "Yes" : "No"}
-                </div>
-                <div>
-                    <strong>Sponsor:</strong> {sponsor}
-                </div>
-                <div>
-                    <strong>Optimistic Smart Contract:</strong>{" "}
-                    {optimistic_smart_contract || "N/A"}
                 </div>
                 <div className="col-span-2">
                     <Button

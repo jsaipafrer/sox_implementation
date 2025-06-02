@@ -150,3 +150,35 @@ export function padBytes(bytes: Uint8Array, length: number, right?: boolean) {
     const padding = new Uint8Array(length - bytes.length);
     return concatBytes(right ? [bytes, padding] : [padding, bytes]);
 }
+
+export function downloadFile(file: Uint8Array, filename: string) {
+    const blob = new Blob([file.buffer], {
+        type: "application/octet-stream",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+export function openFile(): Promise<File | null> {
+    return new Promise((resolve, reject) => {
+        const input = document.createElement("input");
+        input.type = "file";
+
+        input.onchange = (event: Event) => {
+            const target = event.target as HTMLInputElement;
+            if (target.files && target.files.length > 0) {
+                resolve(target.files[0]);
+            } else {
+                resolve(null);
+            }
+        };
+
+        input.click();
+    });
+}

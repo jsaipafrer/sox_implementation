@@ -14,8 +14,10 @@ CREATE TABLE contracts (
     algorithm_suite TEXT NOT NULL,
     commitment TEXT NOT NULL,
     encryption_key TEXT NOT NULL,
+    accepted INTEGER NOT NULL,
     encrypted_file_name TEXT,
-    accepted NUMBER NOT NULL,
+    num_blocks INTEGER,
+    num_gates INTEGER,
     sponsor TEXT, -- can be null while the sponsor hasn't been found
     optimistic_smart_contract TEXT -- can be null while the sponsor hasn't been found
 );
@@ -24,7 +26,7 @@ CREATE TABLE disputes (
     contract_id INTEGER UNIQUE NOT NULL,
     pk_buyer_sponsor TEXT,
     pk_vendor_sponsor TEXT,
-    buyer_proof_path TEXT, -- no need to store it directly here, it's easier to have a path to it
+    buyer_proof_path TEXT, -- no need to store it as blob
     vendor_proof_path TEXT,
     dispute_smart_contract TEXT,
     CONSTRAINT fk_contract_id

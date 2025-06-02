@@ -15,7 +15,10 @@ export type Contract = {
     protocol_version: number;
     timeout_delay: number;
     algorithm_suite: string;
+    commitment: string;
     accepted: number;
+    num_blocks: number;
+    num_gates: number;
     sponsor: string;
     optimistic_smart_contract?: string;
 };

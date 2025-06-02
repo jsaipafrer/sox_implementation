@@ -25,8 +25,8 @@ export interface CompiledCircuit {
  * SHA256 + comparison)
  */
 export function compileBasicCircuit(ctBlocksNumber: number): CompiledCircuit {
-    if (ctBlocksNumber < 2)
-        throw new Error("The ciphertext should be at least two blocks long");
+    if (ctBlocksNumber < 1)
+        throw new Error("The ciphertext should be at least one block long");
     //   m+1 dummy gates (m for the ciphertext, 1 for the counter)
     // + m-1 addition gates for incrementing the counter before AES (from 2nd one)
     // + m AES gates

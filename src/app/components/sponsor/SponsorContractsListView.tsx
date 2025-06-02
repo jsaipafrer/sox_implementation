@@ -58,7 +58,10 @@ export default function SponsorContractsListView() {
             contractInfo.price as number,
             contractInfo.tip_completion as number,
             contractInfo.tip_dispute as number,
-            contractInfo.timeout_delay as number
+            contractInfo.timeout_delay as number,
+            contractInfo.commitment,
+            contractInfo.num_blocks as number,
+            contractInfo.num_gates as number
         );
 
         await fetch(`/api/sponsored-contracts/${selectedContract}`, {

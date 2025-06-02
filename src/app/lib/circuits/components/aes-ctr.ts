@@ -4,7 +4,7 @@ const POSSIBLE_KEY_SIZES = [16, 24, 32]; // in bytes
 // and the 8 LSB are the actual counter
 export const COUNTER_SIZE = 16; // in bytes
 const REAL_COUNTER_SIZE = 8;
-export const BLOCK_SIZE = 32; // in bytes
+export const BLOCK_SIZE = 64; // in bytes
 const ALGORITHM = "AES-CTR";
 
 // Converts the bytes of a cryptographic key (in the format when exporting with

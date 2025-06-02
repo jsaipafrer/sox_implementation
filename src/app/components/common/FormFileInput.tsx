@@ -3,15 +3,15 @@ import React, { useRef } from "react";
 interface FormFileInputProps {
     id: string;
     children: string;
-    type: string;
     onChange?: (newValue: FileList | null) => void;
+    hidden?: boolean;
 }
 
 export default function FormFileInput({
     id,
     children: label,
-    type,
     onChange = () => {},
+    hidden,
 }: FormFileInputProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -24,9 +24,11 @@ export default function FormFileInput({
                 ref={fileInputRef}
                 name={id}
                 id={id}
-                type={type}
+                type="file"
                 onChange={(e) => onChange(e.target.files)}
-                className="w-full border border-gray-300 p-2 rounded"
+                className={`w-full border border-gray-300 p-2 rounded ${
+                    hidden ? "hidden" : ""
+                }`}
             />
         </div>
     );

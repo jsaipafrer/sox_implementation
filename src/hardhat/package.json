@@ -1,0 +1,21 @@
+{
+  "name": "2_hardhat",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "ethers": "^6.14.1",
+    "hardhat": "^2.24.0",
+    "hardhat-gas-reporter": "^2.2.3"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.8"
+  }
+}

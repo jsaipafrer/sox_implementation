@@ -1,4 +1,5 @@
-import { abi, bytecode } from "./contracts/OptimisticSOX.json";
+import { abi as oAbi, bytecode } from "./contracts/OptimisticSOX.json";
+import { abi as dAbi } from "./contracts/DisputeSOX.json";
 import { PK_SK_MAP, PROVIDER, SPONSOR_WALLET } from "./config";
 import {
     Contract,
@@ -14,9 +15,12 @@ export async function deployOptimisticContract(
     price: number,
     completionTip: number,
     disputeTip: number,
-    timeoutIncrement: number
+    timeoutIncrement: number,
+    commitment: string,
+    numGates: number,
+    numBlocks: number
 ): Promise<string> {
-    const factory = new ContractFactory(abi, bytecode);
+    const factory = new ContractFactory(oAbi, bytecode);
     const contract = await factory
         .connect(SPONSOR_WALLET)
         .deploy(
@@ -26,33 +30,45 @@ export async function deployOptimisticContract(
             completionTip,
             disputeTip,
             timeoutIncrement,
+            commitment,
+            numGates,
+            numBlocks,
             { value: parseEther("1") }
         );
     await contract.waitForDeployment();
     return await contract.getAddress();
 }
 
-export async function getState(contractAddr: string) {
+export async function getOptimisticState(contractAddr: string) {
     if (!isAddress(contractAddr)) return;
 
-    const contract = new Contract(contractAddr, abi, PROVIDER);
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
     return await contract.currState().catch(() => {});
 }
 
-export async function getBasicInfo(contractAddr: string) {
+export async function getBasicInfo(
+    contractAddr: string,
+    withDispute?: boolean
+) {
     if (!isAddress(contractAddr)) return;
-    const contract = new Contract(contractAddr, abi, PROVIDER);
+    let contract = new Contract(contractAddr, oAbi, PROVIDER);
+    let key = await contract.key();
+
+    if (withDispute) {
+        let disputeAddr = await contract.disputeContract();
+        contract = new Contract(disputeAddr, dAbi, PROVIDER);
+    }
 
     return {
         state: await contract.currState(),
-        key: await contract.key(),
+        key: key,
         nextTimeout: await contract.nextTimeoutTime(),
     };
 }
 
-export async function getDetails(contractAddr: string) {
+export async function getDetails(contractAddr: string, withDispute?: boolean) {
     if (!isAddress(contractAddr)) return;
-    const contract = new Contract(contractAddr, abi, PROVIDER);
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
 
     return {
         state: await contract.currState(),
@@ -77,7 +93,7 @@ export async function sendPayment(
     contractAddr: string,
     amount: number
 ) {
-    const contract = new Contract(contractAddr, abi, PROVIDER);
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
     const privateKey = PK_SK_MAP.get(payerAddr);
     if (!privateKey) return;
 
@@ -85,4 +101,92 @@ export async function sendPayment(
     return await (contract.connect(wallet) as Contract).sendPayment({
         value: amount,
     });
+}
+
+export async function sendKey(
+    vendorAddr: string,
+    contractAddr: string,
+    key: string
+) {
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    const privateKey = PK_SK_MAP.get(vendorAddr);
+    if (!privateKey) return;
+
+    const wallet = new Wallet(privateKey, PROVIDER);
+    return await (contract.connect(wallet) as Contract).sendKey(key);
+}
+
+export async function submitSb(
+    buyerAddr: string,
+    contractAddr: string,
+    sbAddr: string,
+    tip: number
+) {
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    const privateKey = PK_SK_MAP.get(buyerAddr);
+    if (!privateKey) return;
+
+    const wallet = new Wallet(privateKey, PROVIDER);
+    await (contract.connect(wallet) as Contract).registerBuyerDisputeSponsor(
+        sbAddr,
+        { value: BigInt(tip) }
+    );
+}
+
+export async function sendSbFee(
+    sbAddr: string,
+    contractAddr: string,
+    amount: number
+) {
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    const privateKey = PK_SK_MAP.get(sbAddr);
+    if (!privateKey) return;
+
+    const wallet = new Wallet(privateKey, PROVIDER);
+    return await (
+        contract.connect(wallet) as Contract
+    ).sendBuyerDisputeSponsorFee({ value: BigInt(amount) });
+}
+
+export async function submitSv(
+    vendorAddr: string,
+    contractAddr: string,
+    svAddr: string,
+    tip: number
+) {
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    const privateKey = PK_SK_MAP.get(vendorAddr);
+    if (!privateKey) return;
+
+    const wallet = new Wallet(privateKey, PROVIDER);
+    await (contract.connect(wallet) as Contract).registerVendorDisputeSponsor(
+        svAddr,
+        { value: BigInt(tip) }
+    );
+}
+
+export async function sendSvFee(
+    svAddr: string,
+    contractAddr: string,
+    amount: number
+) {
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    const privateKey = PK_SK_MAP.get(svAddr);
+    if (!privateKey) return;
+
+    const wallet = new Wallet(privateKey, PROVIDER);
+    return await (
+        contract.connect(wallet) as Contract
+    ).sendVendorDisputeSponsorFee({ value: BigInt(amount) });
+}
+
+export async function startDispute(sponsorAddr: string, contractAddr: string) {
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    const privateKey = PK_SK_MAP.get(sponsorAddr);
+    if (!privateKey) return;
+
+    const wallet = new Wallet(privateKey, PROVIDER);
+    await (contract.connect(wallet) as Contract).startDispute();
+
+    return await contract.disputeContract();
 }

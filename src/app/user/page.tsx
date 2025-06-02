@@ -2,30 +2,15 @@
 
 import Button from "../components/common/Button";
 import { useRouter } from "next/navigation";
-import SponsoredContractsListView from "../components/user/SponsoredContractsListView";
-import { useState } from "react";
+import OngoingContractsListView from "../components/user/OngoingContractsListView";
+import { useEffect, useState } from "react";
 import NewDisputeModal from "../components/user/NewDisputeModal";
 import SearchContractModal from "../components/user/SearchContractModal";
 import NewContractModal from "../components/user/NewContractModal";
 import FormTextField from "../components/common/FormTextField";
 import UnsponsoredContractsListView from "../components/user/UnsponsoredContractsListView";
 import NonAcceptedPrecontractsListView from "../components/user/NonAcceptedPrecontractsListView";
-
-type Contract = {
-    id: number;
-    pk_buyer: string;
-    pk_vendor: string;
-    item_description: string;
-    price: number;
-    tip_completion: number;
-    tip_dispute: number;
-    protocol_version: number;
-    timeout_delay: number;
-    algorithm_suite: string;
-    accepted: number;
-    sponsor: string;
-    optimistic_smart_contract: string | null;
-};
+import { getBalance } from "../lib/blockchain/common";
 
 export default function Home() {
     const router = useRouter();
@@ -37,11 +22,26 @@ export default function Home() {
     const [publicKey, setPublicKey] = useState(
         "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
     );
+    const [balance, setBalance] = useState("Loading...");
 
-    const logIn = () => {
+    const logIn = async () => {
         // TODO signature and stuff
         setLoggedIn(true);
+        window.dispatchEvent(new Event("reloadData"));
     };
+
+    useEffect(() => {
+        const handleReloadData = async () => {
+            setBalance(await getBalance(publicKey));
+        };
+
+        handleReloadData();
+        window.addEventListener("reloadData", handleReloadData);
+
+        return () => {
+            window.removeEventListener("reloadData", handleReloadData);
+        };
+    }, [publicKey]);
 
     return (
         <main className="p-4 min-h-screen">
@@ -60,23 +60,27 @@ export default function Home() {
                 />
             </div>
 
-            {!isLoggedIn && (
-                <>
-                    <FormTextField
-                        id="user-public-key"
-                        type="text"
-                        value={publicKey}
-                        onChange={setPublicKey}
-                    >
-                        Public key
-                    </FormTextField>
-                    <br />
-                    <Button onClick={logIn} label="Log in" />
-                </>
-            )}
+            <FormTextField
+                id="user-public-key"
+                type="text"
+                value={publicKey}
+                onChange={setPublicKey}
+            >
+                Public key
+            </FormTextField>
+            <br />
+            <Button onClick={logIn} label="Log in" />
 
             {isLoggedIn && (
                 <>
+                    <div className="flex text-2xl gap-8 justify-between items-center my-8">
+                        <p>
+                            <b>Balance: </b> {balance} ETH
+                        </p>
+                        <h1>
+                            <b>Public key:</b> {publicKey}
+                        </h1>
+                    </div>
                     <div className="flex gap-8 justify-between items-center">
                         <Button
                             label="+ New pre-contract"
@@ -101,8 +105,8 @@ export default function Home() {
                     </div>
 
                     <div className="flex gap-8 my-8">
-                        <SponsoredContractsListView publicKey={publicKey} />
-                        <SponsoredContractsListView publicKey={publicKey} />
+                        <OngoingContractsListView publicKey={publicKey} />
+                        {/* <SponsoredContractsListView publicKey={publicKey} /> */}
                     </div>
                 </>
             )}
@@ -110,6 +114,7 @@ export default function Home() {
             {modalNewContractShown && (
                 <NewContractModal
                     title="New contract"
+                    vendorPk={publicKey}
                     onClose={() => showModalNewContract(false)}
                 ></NewContractModal>
             )}
