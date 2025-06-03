@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {SHA256Evaluator} from "./SHA256Evaluator.sol";
 import {SimpleOperationsEvaluator} from "./SimpleOperationsEvaluator.sol";
+import {AES128CtrEvaluator} from "./AES128CtrEvaluator.sol";
 
 struct Instruction {
     function(bytes[] memory) internal pure returns (bytes memory) f;
@@ -17,8 +18,8 @@ library CircuitEvaluator {
         return [
             /* version 0 */ [
                 Instruction(sha256CompressionInstruction),
-                Instruction(dummy),
-                Instruction(dummy),
+                Instruction(encryptBlock),
+                Instruction(decryptBlock),
                 Instruction(binAdd),
                 Instruction(binMult),
                 Instruction(binEquals),
@@ -89,5 +90,18 @@ library CircuitEvaluator {
         bytes[] memory _data
     ) internal pure returns (bytes memory) {
         return SHA256Evaluator.sha256FinalCompressionInstruction(_data);
+    }
+
+    // Internal wrapper for AES128CtrEvaluator.encryptBlock
+    function encryptBlock(
+        bytes[] memory _data
+    ) internal pure returns (bytes memory) {
+        return AES128CtrEvaluator.encryptBlock(_data);
+    }
+
+    function decryptBlock(
+        bytes[] memory _data
+    ) internal pure returns (bytes memory) {
+        return AES128CtrEvaluator.decryptBlock(_data);
     }
 }
