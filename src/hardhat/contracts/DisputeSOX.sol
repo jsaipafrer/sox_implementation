@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {AccumulatorVerifier} from "./AccumulatorSOX.sol";
 import {CircuitEvaluator} from "./EvaluatorSOX.sol";
-import {CommitmentVerifier} from "./CommitmentSOX.sol";
+import {CommitmentOpener} from "./CommitmentSOX.sol";
 import {OptimisticState, IOptimisticSOX} from "./OptimisticSOX.sol";
 
 /**
@@ -200,7 +200,7 @@ contract DisputeSOX {
      *      m + 1 < i <= n
      * @dev This function allows the vendor to submit a commitment along with
      *      necessary data for evaluation and proof verification
-     * @param _hCircuitCt The array [hCircuit, hCt]
+     * @param _openingValue The opening value related to the contract's commitment
      * @param _gateNum The number of the gate being evaluated
      * @param _gate The gate with format [op, s_1, ..., s_a] where the s_i are
      *      the indices of the gate's sons
@@ -213,7 +213,7 @@ contract DisputeSOX {
      * @param _proofExt The proof rho
      */
     function submitCommitment(
-        bytes[2] memory _hCircuitCt,
+        bytes calldata _openingValue,
         uint256 _gateNum,
         uint256[] calldata _gate, // == [op, s_1, ..., s_a]
         bytes[] calldata _values, // == [v_1, ..., v_a]
@@ -230,8 +230,7 @@ contract DisputeSOX {
             "length must be == gate.length - 1)"
         );
 
-        // open commitment
-        _hCircuitCt = CommitmentVerifier.open(commitment, _hCircuitCt);
+        bytes32[2] memory hCircuitCt = openCommitment(_openingValue);
 
         // compute the hashes that will be used as leaves for the merkle trees
         bytes32[] memory valuesKeccak = hashBytesArray(_values);
@@ -239,28 +238,12 @@ contract DisputeSOX {
 
         // separate the gate's sons list and values according to the set L of
         // indices as defined in the paper
-        uint256[] memory l = getL(_gate);
-
-        uint256[] memory sInL = new uint256[](l.length);
-        bytes32[] memory vInL = new bytes32[](l.length);
-        uint256 iterInL = 0;
-
-        uint256[] memory sNotInLlMinusM = new uint256[](
-            _values.length - l.length
-        );
-        bytes32[] memory vNotInL = new bytes32[](_values.length - l.length);
-        uint256 iterNotInL = 0;
-        for (uint256 i = 1; i < _gate.length; ++i) {
-            if (intArrayContains(l, i)) {
-                sInL[iterInL] = _gate[i];
-                vInL[iterInL] = valuesKeccak[i - 1];
-                ++iterInL;
-            } else {
-                sNotInLlMinusM[iterNotInL] = _gate[i] - numBlocks;
-                vNotInL[iterNotInL] = valuesKeccak[i - 1];
-                ++iterNotInL;
-            }
-        }
+        (
+            uint256[] memory sInL,
+            bytes32[] memory vInL,
+            uint256[] memory sNotInLlMinusM,
+            bytes32[] memory vNotInL
+        ) = extractInAndNotInL(_gate, valuesKeccak);
 
         // compute the gate's result
         bytes memory gateRes = CircuitEvaluator.evaluateGate(
@@ -276,13 +259,13 @@ contract DisputeSOX {
         if (
             buyerResponses[_gateNum] != _currAcc && // w_i != w'_i
             AccumulatorVerifier.verify(
-                bytes32(_hCircuitCt[0]), // hCircuit
+                hCircuitCt[0], // hCircuit
                 gateNumArray,
                 gateKeccak,
                 _proof1
             ) &&
             AccumulatorVerifier.verify(
-                bytes32(_hCircuitCt[1]), // hCt
+                hCircuitCt[1], // hCt
                 sInL,
                 vInL,
                 _proof2
@@ -312,7 +295,7 @@ contract DisputeSOX {
      *      i == m + 1
      * @dev This function allows the vendor to submit a commitment along with
      *      necessary data for evaluation and proof verification
-     * @param _hCircuitCt The array [hCircuit, hCt]
+     * @param _openingValue The opening value related to the contract's commitment
      * @param _gateNum The number of the gate being evaluated
      * @param _gate The gate with format [op, s_1, ..., s_a] where the s_i are
      *      the indices of the gate's sons
@@ -324,7 +307,7 @@ contract DisputeSOX {
      * @param _proofExt The proof rho
      */
     function submitCommitmentLeft(
-        bytes[2] memory _hCircuitCt,
+        bytes calldata _openingValue,
         uint256 _gateNum,
         uint256[] calldata _gate, // g_i == [op, s_1, ..., s_n]
         bytes[] calldata _values,
@@ -340,8 +323,7 @@ contract DisputeSOX {
             "length must be == gate.length - 1)"
         );
 
-        // open commitment
-        _hCircuitCt = CommitmentVerifier.open(commitment, _hCircuitCt);
+        bytes32[2] memory hCircuitCt = openCommitment(_openingValue);
 
         // compute the gate's result
         bytes memory gateRes = CircuitEvaluator.evaluateGate(
@@ -361,13 +343,13 @@ contract DisputeSOX {
         if (
             _currAcc != buyerResponses[_gateNum] &&
             AccumulatorVerifier.verify(
-                bytes32(_hCircuitCt[0]), // hCircuit
+                hCircuitCt[0], // hCircuit
                 gateNumArray,
                 _gateKeccak,
                 _proof1
             ) &&
             AccumulatorVerifier.verify(
-                bytes32(_hCircuitCt[1]), // hCt
+                hCircuitCt[1], // hCt
                 _gate[1:],
                 _valuesKeccak,
                 _proof2
@@ -522,6 +504,55 @@ contract DisputeSOX {
         }
 
         return res;
+    }
+
+    // Opens the commitment with the provided opening value and parses the result
+    function openCommitment(
+        bytes calldata _openingValue
+    ) internal view returns (bytes32[2] memory hCircuitCt) {
+        // open commitment
+        bytes memory opened = CommitmentOpener.open(commitment, _openingValue);
+
+        // the only way split the result without loops is to use inline assembly
+        assembly {
+            mstore(hCircuitCt, mload(add(opened, 32)))
+            mstore(add(hCircuitCt, 32), mload(add(opened, 64)))
+        }
+    }
+
+    function extractInAndNotInL(
+        uint256[] memory _gate,
+        bytes32[] memory _valuesKeccak
+    )
+        internal
+        view
+        returns (
+            uint256[] memory sInL,
+            bytes32[] memory vInL,
+            uint256[] memory sNotInLlMinusM,
+            bytes32[] memory vNotInL
+        )
+    {
+        uint256[] memory l = getL(_gate);
+        sInL = new uint256[](l.length);
+        vInL = new bytes32[](l.length);
+        sNotInLlMinusM = new uint256[](_valuesKeccak.length - l.length);
+        vNotInL = new bytes32[](_valuesKeccak.length - l.length);
+
+        uint256 iterInL = 0;
+        uint256 iterNotInL = 0;
+
+        for (uint256 i = 1; i < _gate.length; ++i) {
+            if (intArrayContains(l, i)) {
+                sInL[iterInL] = _gate[i];
+                vInL[iterInL] = _valuesKeccak[i - 1];
+                ++iterInL;
+            } else {
+                sNotInLlMinusM[iterNotInL] = _gate[i] - numBlocks;
+                vNotInL[iterNotInL] = _valuesKeccak[i - 1];
+                ++iterNotInL;
+            }
+        }
     }
 
     // Checks if a uint array _arr contains the value _val
