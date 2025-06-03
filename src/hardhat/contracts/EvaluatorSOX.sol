@@ -52,40 +52,124 @@ library CircuitEvaluator {
         bytes memory _inputBlock
     ) internal pure returns (bytes memory) {
         unchecked {
-            // prettier-ignore
-            uint32[64] memory K =  [
-                0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
-                0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-                0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
-                0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-                0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
-                0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-                0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-                0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-                0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-                0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-                0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
-                0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-                0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
-                0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-                0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
-                0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+            uint32[64] memory K = [
+                0x428a2f98,
+                0x71374491,
+                0xb5c0fbcf,
+                0xe9b5dba5,
+                0x3956c25b,
+                0x59f111f1,
+                0x923f82a4,
+                0xab1c5ed5,
+                0xd807aa98,
+                0x12835b01,
+                0x243185be,
+                0x550c7dc3,
+                0x72be5d74,
+                0x80deb1fe,
+                0x9bdc06a7,
+                0xc19bf174,
+                0xe49b69c1,
+                0xefbe4786,
+                0x0fc19dc6,
+                0x240ca1cc,
+                0x2de92c6f,
+                0x4a7484aa,
+                0x5cb0a9dc,
+                0x76f988da,
+                0x983e5152,
+                0xa831c66d,
+                0xb00327c8,
+                0xbf597fc7,
+                0xc6e00bf3,
+                0xd5a79147,
+                0x06ca6351,
+                0x14292967,
+                0x27b70a85,
+                0x2e1b2138,
+                0x4d2c6dfc,
+                0x53380d13,
+                0x650a7354,
+                0x766a0abb,
+                0x81c2c92e,
+                0x92722c85,
+                0xa2bfe8a1,
+                0xa81a664b,
+                0xc24b8b70,
+                0xc76c51a3,
+                0xd192e819,
+                0xd6990624,
+                0xf40e3585,
+                0x106aa070,
+                0x19a4c116,
+                0x1e376c08,
+                0x2748774c,
+                0x34b0bcb5,
+                0x391c0cb3,
+                0x4ed8aa4a,
+                0x5b9cca4f,
+                0x682e6ff3,
+                0x748f82ee,
+                0x78a5636f,
+                0x84c87814,
+                0x8cc70208,
+                0x90befffa,
+                0xa4506ceb,
+                0xbef9a3f7,
+                0xc67178f2
             ];
 
-            uint32[] memory words = new uint32[](64);
-            uint wordsI = 0;
-            for (uint i = 0; i < 64; i += 4) {
-                words[wordsI] = uint32(
-                    bytes4(
-                        bytes.concat(
-                            _inputBlock[i],
-                            _inputBlock[i + 1],
-                            _inputBlock[i + 2],
-                            _inputBlock[i + 3]
-                        )
-                    )
+            uint32[64] memory words = prepareMessageSchedule(_inputBlock);
+
+            uint32[8] memory state = _previousDigest;
+
+            for (uint i = 0; i < 64; ++i) {
+                (
+                    state[0],
+                    state[1],
+                    state[2],
+                    state[3],
+                    state[4],
+                    state[5],
+                    state[6],
+                    state[7]
+                ) = compressionRound(
+                    state[0],
+                    state[1],
+                    state[2],
+                    state[3],
+                    state[4],
+                    state[5],
+                    state[6],
+                    state[7],
+                    words[i],
+                    K[i]
                 );
-                ++wordsI;
+            }
+
+            bytes memory result = new bytes(32);
+            for (uint i = 0; i < 8; ++i) {
+                uint32 sum = state[i] + _previousDigest[i];
+                assembly {
+                    mstore(add(add(result, 0x20), mul(i, 4)), shl(224, sum)) // store big-endian bytes4
+                }
+            }
+
+            return result;
+        }
+    }
+
+    function prepareMessageSchedule(
+        bytes memory _inputBlock
+    ) internal pure returns (uint32[64] memory words) {
+        unchecked {
+            for (uint i = 0; i < 16; ++i) {
+                words[i] = uint32(
+                    (uint8(_inputBlock[i * 4]) << 24) |
+                        (uint8(_inputBlock[i * 4 + 1]) << 16) |
+                        (uint8(_inputBlock[i * 4 + 2]) << 8) |
+                        uint8(_inputBlock[i * 4 + 3])
+                );
             }
 
             for (uint i = 16; i < 64; ++i) {
@@ -98,44 +182,35 @@ library CircuitEvaluator {
                 words[i] = words[i - 16] + s0 + words[i - 7] + s1;
             }
 
-            uint32 a = _previousDigest[0];
-            uint32 b = _previousDigest[1];
-            uint32 c = _previousDigest[2];
-            uint32 d = _previousDigest[3];
-            uint32 e = _previousDigest[4];
-            uint32 f = _previousDigest[5];
-            uint32 g = _previousDigest[6];
-            uint32 h = _previousDigest[7];
+            return words;
+        }
+    }
 
-            for (uint i = 0; i < 64; ++i) {
-                uint32 s1 = ror(e, 6) ^ ror(e, 11) ^ ror(e, 25);
-                uint32 ch = (e & f) ^ (~e & g);
-                uint32 tmp1 = h + s1 + ch + K[i] + words[i]; // FIXME seems to overflow, does it matter ?
-                uint32 s0 = ror(a, 2) ^ ror(a, 13) ^ ror(a, 22);
-                uint32 maj = (a & b) ^ (a & c) ^ (b & c);
-                uint32 tmp2 = s0 + maj;
+    function compressionRound(
+        uint32 a,
+        uint32 b,
+        uint32 c,
+        uint32 d,
+        uint32 e,
+        uint32 f,
+        uint32 g,
+        uint32 h,
+        uint32 w,
+        uint32 k
+    )
+        internal
+        pure
+        returns (uint32, uint32, uint32, uint32, uint32, uint32, uint32, uint32)
+    {
+        unchecked {
+            uint32 s1 = ror(e, 6) ^ ror(e, 11) ^ ror(e, 25);
+            uint32 ch = (e & f) ^ (~e & g);
+            uint32 tmp1 = h + s1 + ch + k + w;
+            uint32 s0 = ror(a, 2) ^ ror(a, 13) ^ ror(a, 22);
+            uint32 maj = (a & b) ^ (a & c) ^ (b & c);
+            uint32 tmp2 = s0 + maj;
 
-                h = g;
-                g = f;
-                f = e;
-                e = d + tmp1;
-                d = c;
-                c = b;
-                b = a;
-                a = tmp1 + tmp2;
-            }
-
-            return
-                bytes.concat(
-                    bytes4(_previousDigest[0] + a),
-                    bytes4(_previousDigest[1] + b),
-                    bytes4(_previousDigest[2] + c),
-                    bytes4(_previousDigest[3] + d),
-                    bytes4(_previousDigest[4] + e),
-                    bytes4(_previousDigest[5] + f),
-                    bytes4(_previousDigest[6] + g),
-                    bytes4(_previousDigest[7] + h)
-                );
+            return (tmp1 + tmp2, a, b, c, d + tmp1, e, f, g);
         }
     }
 

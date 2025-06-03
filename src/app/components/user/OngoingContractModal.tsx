@@ -29,7 +29,6 @@ import {
     submitCommitmentLeft,
     submitCommitmentRight,
 } from "@/app/lib/blockchain/dispute";
-import FormFileInput from "../common/FormFileInput";
 import { downloadFile, fileToBytes, openFile } from "@/app/lib/helpers";
 import init, {
     bytes_to_hex,
@@ -44,7 +43,6 @@ import init, {
     hpre,
     make_argument,
 } from "@/app/lib/circuits/wasm/circuits";
-import { BLOCK_SIZE } from "@/app/lib/circuits/components/aes-ctr";
 
 interface OngoingContractModalProps {
     onClose: () => void;
@@ -79,10 +77,7 @@ export default function OngoingContractModal({
         item_description,
         tip_completion,
         tip_dispute,
-        protocol_version,
-        timeout_delay,
-        algorithm_suite,
-        commitment,
+        opening_value,
         optimistic_smart_contract,
         dispute_smart_contract,
         pk_sb,
@@ -109,6 +104,7 @@ export default function OngoingContractModal({
     const [keyInput, setKeyInput] = useState("");
     const [sbInput, setSbInput] = useState("");
     const [svInput, setSvInput] = useState("");
+    const [commitment, setCommitment] = useState("");
     const [challengeFile, setChallengeFile] = useState<FileList | null>();
 
     useEffect(() => {
@@ -120,6 +116,7 @@ export default function OngoingContractModal({
                 setState(Number(data.state));
 
                 setNextTimeout(timestampToString(data.nextTimeout));
+                setCommitment(data.commitment);
             }
         );
     }, [optimistic_smart_contract]);
@@ -343,8 +340,7 @@ export default function OngoingContractModal({
         const { success, decrypted_file } = check_received_ct_key(
             ct,
             hex_to_bytes(key),
-            item_description,
-            BLOCK_SIZE
+            item_description
         );
 
         if (success) {
@@ -382,7 +378,7 @@ export default function OngoingContractModal({
         const h_circuit = localStorage.getItem(`h_circuit_${id}`)!;
         const h_ct = localStorage.getItem(`h_ct_${id}`)!;
 
-        const argument = make_argument(ct, item_description, h_circuit, h_ct);
+        const argument = make_argument(ct, item_description, opening_value);
 
         await submitSb(
             publicKey,
@@ -410,7 +406,7 @@ export default function OngoingContractModal({
 
         const response = await fetch(`/api/arguments/buyer/${id}`);
         const { argument } = await response.json();
-        const success = check_argument(hex_to_bytes(argument));
+        const success = check_argument(hex_to_bytes(argument), commitment);
 
         if (success) {
             alert("Argument is valid");
@@ -443,7 +439,7 @@ export default function OngoingContractModal({
         const h_circuit = localStorage.getItem(`h_circuit_${id}`)!;
         const h_ct = localStorage.getItem(`h_ct_${id}`)!;
 
-        const argument = make_argument(ct, item_description, h_circuit, h_ct);
+        const argument = make_argument(ct, item_description, opening_value);
 
         await submitSv(
             publicKey,
@@ -471,7 +467,7 @@ export default function OngoingContractModal({
 
         const response = await fetch(`/api/arguments/vendor/${id}`);
         const { argument } = await response.json();
-        const success = check_argument(hex_to_bytes(argument));
+        const success = check_argument(hex_to_bytes(argument), commitment);
 
         if (success) {
             alert("Argument is valid");

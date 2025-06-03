@@ -1,7 +1,7 @@
 import { writeFileSync } from "fs";
 import { ethers } from "hardhat";
 import hre from "hardhat";
-import { PROVIDER } from "../src/app/lib/blockchain/config";
+import { PROVIDER } from "../app/lib/blockchain/config";
 
 async function main() {
     const deployer = (await PROVIDER.listAccounts()).slice(-1)[0];
@@ -62,11 +62,11 @@ async function main() {
     };
 
     writeFileSync(
-        "../src/app/lib/blockchain/contracts/OptimisticSOX.json",
+        "../app/lib/blockchain/contracts/OptimisticSOX.json",
         JSON.stringify(optimisticData)
     );
     writeFileSync(
-        "../src/app/lib/blockchain/contracts/DisputeSOX.json",
+        "../app/lib/blockchain/contracts/DisputeSOX.json",
         JSON.stringify(disputeData)
     );
 

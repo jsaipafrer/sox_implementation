@@ -63,10 +63,11 @@ export async function getBasicInfo(
         state: await contract.currState(),
         key: key,
         nextTimeout: await contract.nextTimeoutTime(),
+        commitment: await contract.commitment(),
     };
 }
 
-export async function getDetails(contractAddr: string, withDispute?: boolean) {
+export async function getDetails(contractAddr: string) {
     if (!isAddress(contractAddr)) return;
     const contract = new Contract(contractAddr, oAbi, PROVIDER);
 
@@ -85,6 +86,9 @@ export async function getDetails(contractAddr: string, withDispute?: boolean) {
         buyerDeposit: await contract.buyerDeposit(),
         bSponsorDeposit: await contract.sbDeposit(),
         vSponsorDeposit: await contract.svDeposit(),
+        commitment: await contract.commitment(),
+        numBlocks: await contract.numBlocks(),
+        numGates: await contract.numGates(),
     };
 }
 

@@ -20,6 +20,7 @@ export type Contract = {
     num_blocks: number;
     num_gates: number;
     sponsor: string;
+    opening_value: string;
     optimistic_smart_contract?: string;
 };
 

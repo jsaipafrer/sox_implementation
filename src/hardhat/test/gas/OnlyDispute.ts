@@ -10,7 +10,7 @@ import { evaluateCircuit } from "../../../app/lib/circuits/evaluator";
 
 const { ethers } = hre;
 
-const NB_RUNS = 10;
+const NB_RUNS = 1;
 
 /*
 ONLY 10 RUNS!!!

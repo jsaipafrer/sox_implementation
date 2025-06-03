@@ -40,7 +40,7 @@ async function time_vendor_compute_precontract_values() {
         commitment,
         num_blocks,
         num_gates,
-    } = compute_precontract_values(file, key, BLOCK_SIZE);
+    } = compute_precontract_values(file, key);
 
     const end = performance.now();
     console.log(`\tTook ${end - start} ms`);
@@ -51,7 +51,8 @@ async function time_vendor_compute_precontract_values() {
     return {
         time: end - start,
         description: bytes_to_hex(description),
-        commitment: bytes_to_hex(commitment),
+        commitment: bytes_to_hex(commitment.c),
+        opening_value: bytes_to_hex(commitment.o),
         key: bytes_to_hex(key),
         num_gates,
         num_blocks,
@@ -60,7 +61,8 @@ async function time_vendor_compute_precontract_values() {
 
 async function time_buyer_check_precontract(
     desc: string,
-    commitment_vendor: string
+    commitment_vendor: string,
+    opening_value_vendor: string
 ) {
     console.log("Buyer precontract checks");
 
@@ -71,6 +73,7 @@ async function time_buyer_check_precontract(
     const { success, h_circuit, h_ct } = check_precontract(
         desc,
         commitment_vendor,
+        opening_value_vendor,
         ct
     );
     if (!success) throw new Error("precontract check failed");
@@ -95,8 +98,7 @@ async function time_buyer_check_received_ct_key(key: string, desc_v: string) {
     const { success, decrypted_file } = check_received_ct_key(
         ct,
         hex_to_bytes(key),
-        desc_v,
-        BLOCK_SIZE
+        desc_v
     );
 
     if (!success) throw new Error("Decryption's description doesn't match");
@@ -111,18 +113,14 @@ async function time_buyer_check_received_ct_key(key: string, desc_v: string) {
     };
 }
 
-async function time_bv_make_argument(
-    desc: string,
-    h_circuit: string,
-    h_ct: string
-) {
+async function time_bv_make_argument(desc: string, opening_value: string) {
     console.log("Buyer checks before dispute trigger and argument making");
 
     const ct = readFileSync(`${TMP_DIR}/ct_v.enc`);
 
     const start = performance.now();
 
-    const argument = make_argument(ct, desc, h_circuit, h_ct);
+    const argument = make_argument(ct, desc, opening_value);
 
     const end = performance.now();
     console.log(`\tTook ${end - start} ms`);
@@ -134,14 +132,14 @@ async function time_bv_make_argument(
     };
 }
 
-async function time_sponsor_check_argument() {
+async function time_sponsor_check_argument(commitment: string) {
     console.log("Dispute sponsor checks argument");
     // argument = (circuit_b, ct, o)
     const argument = readFileSync(`${TMP_DIR}/argument.bin`);
 
     const start = performance.now();
 
-    const success = check_argument(argument);
+    const success = check_argument(argument, commitment);
     if (!success) throw new Error("Argument check failed");
 
     const end = performance.now();
@@ -276,7 +274,8 @@ async function main() {
 
     let precontract_check = await time_buyer_check_precontract(
         precontract.description,
-        precontract.commitment
+        precontract.commitment,
+        precontract.opening_value
     );
     buyer_time += precontract_check.time;
 
@@ -288,17 +287,26 @@ async function main() {
     ).time;
     buyer_time += extra_time;
 
+    let opt_vendor_time = vendor_time;
+    let opt_buyer_time = buyer_time;
+    console.log(
+        "============================== OPTIMISTIC TIME ===================="
+    );
+    console.log(`Buyer: ${opt_buyer_time} ms`);
+    console.log(`Vendor: ${opt_vendor_time} ms`);
+    console.log("\n");
+
     extra_time = (
         await time_bv_make_argument(
             precontract.description,
-            precontract_check.h_circuit,
-            precontract_check.h_ct
+            precontract.opening_value
         )
     ).time;
     buyer_time += extra_time;
     vendor_time += extra_time;
 
-    sponsors_time = (await time_sponsor_check_argument()).time;
+    sponsors_time = (await time_sponsor_check_argument(precontract.commitment))
+        .time;
 
     const { time, evaluated } = await time_bv_evaluate_circuit(
         precontract.key,
@@ -307,10 +315,14 @@ async function main() {
     buyer_time += time;
     vendor_time += time;
 
-    await time_bv_compute_hpre(
+    const { time: time_hpre } = await time_bv_compute_hpre(
         precontract.num_blocks,
         precontract.num_blocks + 2
     );
+    // hpre must be computes log(num_gates) times
+    const log_gates = Math.floor(Math.log2(precontract.num_gates));
+    buyer_time += log_gates * time_hpre;
+    vendor_time += log_gates * time_hpre;
 
     const components_8a = await time_vendor_computes_proofs_8a(
         precontract.num_blocks + 3
@@ -326,9 +338,7 @@ async function main() {
     );
     vendor_time += max(components_8a.time, components_8b.time, proof_8c.time);
 
-    console.log(
-        "==================== WORST CASE RUNNING TIME (no hpre) ==============="
-    );
+    console.log("==================== WORST CASE RUNNING TIME ===============");
     console.log(`Buyer: ${buyer_time} ms`);
     console.log(`Vendor: ${vendor_time} ms`);
     console.log(`Dispute sponsors: ${sponsors_time} ms`);

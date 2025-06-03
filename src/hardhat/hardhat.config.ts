@@ -8,10 +8,10 @@ const config: HardhatUserConfig = {
         version: "0.8.28",
         settings: {
             viaIR: true,
-            // optimizer: {
-            //     enabled: true,
-            //     runs: 1000,
-            // },
+            optimizer: {
+                enabled: true,
+                runs: 2000,
+            },
         },
     },
     networks: {
@@ -80,8 +80,6 @@ const config: HardhatUserConfig = {
         enabled: process.env.REPORT_GAS ? true : false,
         coinmarketcap: "8160c5a0-05cc-4e77-a7c7-588e664c90f2",
         L1Etherscan: "69IG94CSPRVEENXIU7IBI3QBYWG8ZKU8W4",
-        reportFormat: "markdown",
-        outputFile: "gasReport.md",
         forceTerminalOutput: true,
         forceTerminalOutputFormat: "terminal",
     },

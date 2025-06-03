@@ -14,7 +14,7 @@ use rmp_serde::{encode::write, decode::from_read};
 use alloy_sol_types::SolValue;
 use rand::RngCore;
 use crate::accumulator::{acc_circuit, acc_ct, acc, prove_ext, prove};
-use crate::commitment::{commit_internal, hex_to_bytes, bytes_to_hex, open_commitment_internal, commit};
+use crate::commitment::{commit_internal, hex_to_bytes, bytes_to_hex, open_commitment_internal, commit_hashes, Commitment};
 use crate::encryption::{decrypt, encrypt_and_prepend_iv};
 use crate::sha256::sha256;
 
@@ -444,23 +444,23 @@ pub struct Precontract {
     pub h_circuit: Vec<u8>,
 
     #[wasm_bindgen(getter_with_clone)]
-    pub commitment: Vec<u8>,
+    pub commitment: Commitment,
 
     pub num_blocks: usize,
     pub num_gates: usize,
 }
 
 #[wasm_bindgen]
-pub fn compute_precontract_values(file: &mut [u8], key: &[u8], block_size: usize) -> Precontract {
+pub fn compute_precontract_values(file: &mut [u8], key: &[u8]) -> Precontract {
     let description = sha256(file);
     let ct = encrypt_and_prepend_iv(file, key);
     let circuit = compile_basic_circuit(ct.len(), &description);
-    let num_blocks = ct.len() / block_size + if ct.len() % block_size == 0 { 0 } else { 1 };
+    let num_blocks = ct.len() / circuit.block_size + if ct.len() % circuit.block_size == 0 { 0 } else { 1 };
     let num_gates = circuit.circuit.gates.len();
     let circuit_bytes = circuit.to_bytes();
-    let h_ct = acc_ct(&ct, block_size);
+    let h_ct = acc_ct(&ct, circuit.block_size);
     let h_circuit = acc_circuit(circuit);
-    let commitment = commit_internal(&h_circuit, &h_ct);
+    let commitment = commit_hashes(&h_circuit, &h_ct);
 
     Precontract {
         ct,
@@ -490,17 +490,20 @@ pub struct CheckPrecontractResult {
 }
 
 #[wasm_bindgen]
-pub fn check_precontract(description: String, commitment: String, ct: &[u8]) -> CheckPrecontractResult {
+pub fn check_precontract(description: String, commitment: String, opening_value: String, ct: &[u8]) -> CheckPrecontractResult {
     let description_bytes = hex_to_bytes(description);
     let circuit = compile_basic_circuit(ct.len(), &description_bytes);
     let h_ct = acc_ct(ct, circuit.block_size);
     let h_circuit = acc_circuit(circuit);
-    let commitment_bytes = hex_to_bytes(commitment);
-    match open_commitment_internal(&commitment_bytes, (&h_circuit, &h_ct)) {
-        Ok(_) => {
-            CheckPrecontractResult { success: true, h_circuit, h_ct }
+    match open_commitment_internal(&hex_to_bytes(commitment), &hex_to_bytes(opening_value)) {
+        Ok(opened) => {
+            let success = opened.len() == 64
+                && opened[..32].eq(&h_circuit)
+                && opened[32..].eq(&h_ct);
+            CheckPrecontractResult { success, h_circuit, h_ct }
         },
         Err(msg) => {
+            log(msg);
             CheckPrecontractResult { success: false, h_circuit, h_ct }
         }
     }
@@ -519,7 +522,7 @@ pub struct CheckCtResult {
 }
 
 #[wasm_bindgen]
-pub fn check_received_ct_key(ct: &mut [u8], key: &[u8], description: String, block_size: usize) -> CheckCtResult {
+pub fn check_received_ct_key(ct: &mut [u8], key: &[u8], description: String) -> CheckCtResult {
     let decrypted_file = decrypt(ct, key);
     let description_computed = sha256(&decrypted_file);
     let success = hex_to_bytes(description).eq(&description_computed);
@@ -544,10 +547,7 @@ pub struct DisputeArgument {
     pub ct: Vec<u8>,
 
     #[wasm_bindgen(getter_with_clone)]
-    pub h_circuit: Vec<u8>,
-
-    #[wasm_bindgen(getter_with_clone)]
-    pub h_ct: Vec<u8>,
+    pub opening_value: Vec<u8>
 }
 
 #[wasm_bindgen]
@@ -564,12 +564,11 @@ impl DisputeArgument {
 }
 
 #[wasm_bindgen]
-pub fn make_argument(ct: Vec<u8>, description: String, h_circuit: String, h_ct: String) -> Vec<u8> {
+pub fn make_argument(ct: Vec<u8>, description: String, opening_value: String) -> Vec<u8> {
     DisputeArgument {
         circuit: compile_basic_circuit(ct.len(), &hex_to_bytes(description)),
         ct,
-        h_circuit: hex_to_bytes(h_circuit),
-        h_ct: hex_to_bytes(h_ct)
+        opening_value: hex_to_bytes(opening_value)
     }.to_bytes()
 }
 
@@ -578,16 +577,17 @@ pub fn make_argument(ct: Vec<u8>, description: String, h_circuit: String, h_ct: 
 // ####################################
 
 #[wasm_bindgen]
-pub fn check_argument(argument_bin: &[u8]) -> bool {
+pub fn check_argument(argument_bin: &[u8], commitment: String) -> bool {
     let argument = DisputeArgument::from_bytes(argument_bin);
     let block_size = argument.circuit.block_size;
     let h_circuit = acc_circuit(argument.circuit);
     let h_ct = acc_ct(argument.ct.as_slice(), block_size);
-    let commitment = commit(h_circuit, h_ct);
 
-    match open_commitment_internal(&commitment, (&argument.h_circuit, &argument.h_ct)) {
-        Ok(_) => {
-            true
+    match open_commitment_internal(&hex_to_bytes(commitment), &argument.opening_value) {
+        Ok(opened) => {
+            opened.len() == 64
+                && opened[..32].eq(&h_circuit)
+                && opened[32..].eq(&h_ct)
         },
         Err(msg) => {
             log(msg);

@@ -26,45 +26,47 @@ pub fn acc(values: &[Vec<u8>]) -> Vec<u8> {
 
 pub fn prove(values: &[Vec<u8>], indices: &[usize]) -> Vec<Vec<Vec<u8>>> {
     // TODO error handling (>0 values, >0 indices, values.len >= indices.len, check if all indices are within values)
-
-    let tree = make_tree(values);
-    let tree_no_root = &tree[..tree.len()-1];
-
-    let mut a = indices.to_vec();
+    let mut a: Vec<usize> = indices.to_vec();
     a.sort();
-    let mut proof: Vec<Vec<Vec<u8>>> = vec![]; // TODO allocate size
-    for l in tree_no_root {
-        let mut b_pruned: Vec<(usize, usize)> = vec![];
+
+    let mut proof: Vec<Vec<Vec<u8>>> = vec![];
+
+    let mut curr_layer: Vec<Vec<u8>> = values.iter().map(hash).collect();
+
+    while curr_layer.len() > 1 {
+        let mut b: Vec<(usize, usize)> = vec![];
         let mut diff: Vec<usize> = vec![];
 
         let mut i = 0;
         while i < a.len() {
-            // using while loop because for loops don't allow incrementing i inside the loop
             let idx = a[i];
             let neighbor = get_neighbor_idx(&idx);
             if idx < neighbor {
-                b_pruned.push((idx, neighbor))
+                b.push((idx, neighbor));
             } else {
-                b_pruned.push((neighbor, idx))
+                b.push((neighbor, idx));
             }
 
-            if i < a.len() - 1 && neighbor == a[i+1] {
+            if i < a.len() - 1 && neighbor == a[i + 1] {
                 i += 1;
             }
 
-            if !a.contains(&neighbor) && neighbor < l.len() {
-                diff.push(neighbor)
+            if !a.contains(&neighbor) && neighbor < curr_layer.len() {
+                diff.push(neighbor);
             }
             i += 1;
         }
 
-        let mut new_proof_layer: Vec<Vec<u8>> = diff.iter().map(|i| l[*i].clone()).collect();
-        new_proof_layer.reverse();
-        proof.push(new_proof_layer);
 
-        a = b_pruned.iter()
-            .map(|p| if p.0 % 2 == 0 { p.0 } else { p.1 })
-            .map(|i| i >> 1).collect();
+        proof.push(diff
+            .iter().rev()
+            .map(|&i| curr_layer[i].clone())
+            .collect());
+
+        curr_layer = compute_next_layer(curr_layer);
+        a = b.iter()
+            .map(|p| p.0 >> 1)
+            .collect();
     }
 
     proof
@@ -74,13 +76,13 @@ pub fn verify(root: &Vec<u8>, indices: &Vec<usize>, values: &[Vec<u8>], proof: &
     if indices.len() != values.len() { return false; }
 
     let mut proof_copy = proof.clone();
-    let mut indices_copy = indices.clone();
-    let mut values_keccak: Vec<Vec<u8>> = values.iter().map(hash).collect();
+    let mut current_indices = indices.clone();
+    let mut layer: Vec<Vec<u8>> = values.iter().map(hash).collect();
 
-    for l in &mut proof_copy {
+    for proof_layer in &mut proof_copy {
         let mut b: Vec<(usize, usize)> = vec![];
 
-        for i in &indices_copy {
+        for i in &current_indices {
             let neighbor = get_neighbor_idx(i);
 
             if neighbor < *i { b.push((neighbor, i.clone())) }
@@ -88,7 +90,7 @@ pub fn verify(root: &Vec<u8>, indices: &Vec<usize>, values: &[Vec<u8>], proof: &
         }
 
         let mut next_indices: Vec<usize> = vec![];
-        let mut next_values: Vec<Vec<u8>> = vec![];
+        let mut next_layer: Vec<Vec<u8>> = vec![];
 
         let mut i = 0;
         while i < b.len() { // use a while loop because we cannot manually increment in for loops
@@ -100,39 +102,37 @@ pub fn verify(root: &Vec<u8>, indices: &Vec<usize>, values: &[Vec<u8>], proof: &
                 // it can only be that b[i][0] == nextIndices[i]
                 // => the corresponding values are valuesKeccak[i]
                 // and valuesKeccak[i+1]
-                next_values.push(
-                    concat_and_hash(&values_keccak[i], &values_keccak[i+1])
+                next_layer.push(
+                    concat_and_hash(&layer[i], &layer[i+1])
                 );
 
                 i += 1;
-            } else if l.len() > 0 {
-                let corresponding_idx = indices_copy[i];
-                let neighbor = get_neighbor_idx(&corresponding_idx);
+            } else if proof_layer.len() > 0 {
+                let last_layer_val = proof_layer.pop().unwrap();
 
-                let last_layer_val = l.pop().unwrap();
-                if neighbor < corresponding_idx {
-                    next_values.push(
-                        concat_and_hash(&last_layer_val, &values_keccak[i])
+                if current_indices[i] % 2 == 1 {
+                    next_layer.push(
+                        concat_and_hash(&last_layer_val, &layer[i])
                     );
                 } else {
-                    next_values.push(
-                        concat_and_hash(&values_keccak[i], &last_layer_val)
+                    next_layer.push(
+                        concat_and_hash(&layer[i], &last_layer_val)
                     );
                 }
             } else {
                 // proofLayer is empty, move the element that must be combined to the next layer
-                next_values.push(values_keccak[i].clone());
+                next_layer.push(layer[i].clone());
             }
 
-            next_indices.push(indices_copy[i] >> 1);
+            next_indices.push(current_indices[i] >> 1);
             i += 1;
         }
 
-        values_keccak = next_values.clone();
-        indices_copy = next_indices.clone();
+        layer = next_layer.clone();
+        current_indices = next_indices.clone();
     }
 
-    values_keccak[0].eq(root)
+    layer[0].eq(root)
 }
 
 pub fn prove_ext(values: &[Vec<u8>]) -> Vec<Vec<Vec<u8>>> {
@@ -159,16 +159,20 @@ fn compute_merkle_root(hashes: Vec<Vec<u8>>) -> Vec<u8> {
     let mut curr_layer = hashes;
 
     while curr_layer.len() > 1 {
-        curr_layer = (0..curr_layer.len()).step_by(2).collect::<Vec<_>>().par_iter().map(|&i| {
-            if i < curr_layer.len() - 1 {
-                concat_and_hash(&curr_layer[i], &curr_layer[i + 1])
-            } else {
-                curr_layer[i].clone()
-            }
-        }).collect();
+        curr_layer = compute_next_layer(curr_layer)
     }
 
     curr_layer.remove(0)
+}
+
+fn compute_next_layer(curr_layer: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+    (0..curr_layer.len()).step_by(2).collect::<Vec<_>>().par_iter().map(|&i| {
+        if i < curr_layer.len() - 1 {
+            concat_and_hash(&curr_layer[i], &curr_layer[i + 1])
+        } else {
+            curr_layer[i].clone()
+        }
+    }).collect()
 }
 
 fn to_bytes32(data: &Vec<u8>) -> Vec<u8> {
@@ -182,34 +186,6 @@ fn to_bytes32(data: &Vec<u8>) -> Vec<u8> {
     // res.reverse();
 
     res
-}
-
-fn make_tree(values: &[Vec<u8>]) -> Vec<Vec<Vec<u8>>> {
-    if values.len() == 0 {
-        return vec![vec![]];
-    }
-    if values.len() == 1 {
-        return vec![vec![hash(&values[0])]];
-    }
-
-    let mut tree: Vec<Vec<Vec<u8>>> = vec![]; // TODO allocate some size already
-    tree.push(values.iter().map(hash).collect());
-    let mut curr_layer = tree.last().unwrap();
-
-    while curr_layer.len() > 1 {
-        let mut next_layer: Vec<Vec<u8>> = vec![];
-        for i in (0..curr_layer.len()).step_by(2) {
-            if i < curr_layer.len() - 1 {
-                next_layer.push(concat_and_hash(&curr_layer[i], &curr_layer[i+1]));
-            } else {
-                next_layer.push(curr_layer[i].clone());
-            }
-        }
-        tree.push(next_layer);
-        curr_layer = tree.last().unwrap();
-    }
-
-    tree
 }
 
 fn get_neighbor_idx(index: &usize) -> usize {

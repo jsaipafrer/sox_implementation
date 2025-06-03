@@ -20,32 +20,32 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: Request) {
     const data = await req.json();
     let stmt = db.prepare(`INSERT INTO contracts (
-        pk_buyer, pk_vendor, item_description, price,
-        tip_completion, tip_dispute,
+        item_description, opening_value,
+        pk_buyer, pk_vendor, price, num_blocks, 
+        num_gates, commitment, tip_completion, tip_dispute,
         protocol_version, timeout_delay, algorithm_suite,
-        commitment, encryption_key, num_blocks, 
-        num_gates, accepted
+        accepted
     ) VALUES (
-        ?, ?, ?, ?, 
-        ?, ?, 
-        ?, ?, ?, 
-        ?, ?, ?, 
-        ?, 0
+        ?, ?,
+        ?, ?, ?, ?,
+        ?, ?, ?, ?,
+        ?, ?, ?,
+        0
     );`);
     const result = stmt.run(
+        data.item_description,
+        data.opening_value,
         data.pk_buyer,
         data.pk_vendor,
-        data.item_description,
         data.price,
+        data.num_blocks,
+        data.num_gates,
+        data.commitment,
         data.tip_completion,
         data.tip_dispute,
         data.protocol_version,
         data.timeout_delay,
-        data.algorithm_suite,
-        data.commitment,
-        data.key,
-        data.num_blocks,
-        data.num_gates
+        data.algorithm_suite
     );
     const id = result.lastInsertRowid;
 
@@ -54,11 +54,5 @@ export async function PUT(req: Request) {
 
     const fileName = `file_${id}.enc`;
     fs.writeFileSync(`${UPLOADS_PATH}${fileName}`, hex_to_bytes(data.file));
-
-    console.log(fileName);
-    stmt = db.prepare(`UPDATE contracts 
-        SET encrypted_file_name = ? 
-        WHERE id = ?`);
-    stmt.run(fileName, id); // FIXME raw insertion might be unsafe
     return NextResponse.json({ id });
 }

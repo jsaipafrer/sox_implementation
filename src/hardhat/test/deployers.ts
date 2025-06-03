@@ -1,7 +1,6 @@
 import hre from "hardhat";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { commit } from "../../app/lib/commitment";
 import { bytesToHex } from "../../app/lib/helpers";
 
 const { ethers } = hre;
@@ -14,9 +13,6 @@ export async function deployRealContracts(
     sponsor: HardhatEthersSigner,
     buyer: HardhatEthersSigner,
     vendor: HardhatEthersSigner,
-    num_gates: number,
-    num_blocks: number,
-    commitment: Uint8Array,
     withRandomValues?: boolean
 ) {
     const GWEI_MULT = 1_000_000_000n;
@@ -54,6 +50,9 @@ export async function deployRealContracts(
     let completionTip = 80n * GWEI_MULT;
     let disputeTip = 120n * GWEI_MULT;
     let timeoutIncrement = 3600n; // 1 hour
+    let num_blocks = 1024n;
+    let num_gates = 4n * num_blocks + 1n;
+    let commitment = new Uint8Array(32);
 
     if (withRandomValues) {
         sponsorAmount = BigInt(randInt(250, 1001)) * GWEI_MULT;
@@ -61,6 +60,8 @@ export async function deployRealContracts(
         completionTip = BigInt(randInt(1, 111)) * GWEI_MULT;
         disputeTip = BigInt(randInt(20, 201)) * GWEI_MULT;
         timeoutIncrement = BigInt(randInt(60, 121));
+        num_blocks = BigInt(randInt(512, 2048));
+        num_gates = 4n * num_blocks + BigInt(randInt(512, 2048));
     }
 
     const factory = await ethers.getContractFactory("OptimisticSOX", {

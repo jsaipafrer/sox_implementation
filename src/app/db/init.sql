@@ -3,21 +3,23 @@ DROP TABLE IF EXISTS disputes;
 
 CREATE TABLE contracts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_description TEXT NOT NULL,
+    opening_value TEXT NOT NULL,
+
+    -- contract elements
     pk_buyer TEXT NOT NULL,
     pk_vendor TEXT NOT NULL,
-    item_description TEXT NOT NULL,
     price NUMBER NOT NULL,
+    num_blocks INTEGER,
+    num_gates INTEGER,
+    commitment TEXT NOT NULL,
     tip_completion NUMBER NOT NULL,
     tip_dispute NUMBER NOT NULL,
     protocol_version NUMBER NOT NULL,
     timeout_delay NUMBER NOT NULL,
     algorithm_suite TEXT NOT NULL,
-    commitment TEXT NOT NULL,
-    encryption_key TEXT NOT NULL,
+
     accepted INTEGER NOT NULL,
-    encrypted_file_name TEXT,
-    num_blocks INTEGER,
-    num_gates INTEGER,
     sponsor TEXT, -- can be null while the sponsor hasn't been found
     optimistic_smart_contract TEXT -- can be null while the sponsor hasn't been found
 );

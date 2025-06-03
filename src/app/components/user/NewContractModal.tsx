@@ -13,8 +13,6 @@ import init, {
     compute_precontract_values,
 } from "@/app/lib/circuits/wasm/circuits";
 
-const BLOCK_SIZE = 64;
-
 interface NewContractModalProps {
     onClose: () => void;
     vendorPk: string;
@@ -50,23 +48,22 @@ export default function NewContractModal({
             commitment,
             num_blocks,
             num_gates,
-        } = compute_precontract_values(fileBytes, keyBytes, BLOCK_SIZE);
+        } = compute_precontract_values(fileBytes, keyBytes);
 
-        const keyHex = bytes_to_hex(keyBytes);
         let data = {
+            item_description: bytes_to_hex(description),
+            opening_value: bytes_to_hex(commitment.o),
             pk_buyer: buyerPk,
             pk_vendor: vendorPk,
-            item_description: bytes_to_hex(description),
             price: price,
+            num_blocks,
+            num_gates,
+            commitment: bytes_to_hex(commitment.c),
             tip_completion: tipCompletion,
             tip_dispute: tipDispute,
             protocol_version: version,
             timeout_delay: timeoutDelay,
             algorithm_suite: algorithms,
-            commitment: bytes_to_hex(commitment),
-            num_blocks,
-            num_gates,
-            key: keyHex,
             file: bytes_to_hex(ct),
         };
 
@@ -79,7 +76,9 @@ export default function NewContractModal({
         });
         const { id } = await response_raw.json();
         alert(
-            `Added new contract with ID ${id}. The encryption key is: ${keyHex}`
+            `Added new contract with ID ${id}. The encryption key is: ${bytes_to_hex(
+                keyBytes
+            )}`
         );
         localStorage.setItem(`h_circuit_${id}`, bytes_to_hex(h_circuit));
         localStorage.setItem(`h_ct_${id}`, bytes_to_hex(h_ct));

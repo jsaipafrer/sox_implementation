@@ -21,6 +21,7 @@ export type Contract = {
     num_blocks: number;
     num_gates: number;
     optimistic_smart_contract: string;
+    opening_value: string;
     state?: bigint;
     dispute_smart_contract?: string;
     pk_sb?: string;

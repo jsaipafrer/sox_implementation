@@ -1,11 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
-import FormTextField from "../common/FormTextField";
-import FormSelect from "../common/FormSelect";
-import FormFileInput from "../common/FormFileInput";
 import { Contract } from "./NonAcceptedPrecontractsListView";
 import init, {
     bytes_to_hex,
@@ -40,6 +36,7 @@ export default function NonAcceptedPrecontractModal({
         accepted,
         sponsor,
         commitment,
+        opening_value,
         optimistic_smart_contract,
     } = contract;
 
@@ -61,14 +58,14 @@ export default function NonAcceptedPrecontractModal({
         const { success, h_circuit, h_ct } = check_precontract(
             item_description,
             commitment,
-            ct,
-            BLOCK_SIZE
+            opening_value,
+            ct
         );
 
         if (success) {
             if (
                 confirm(
-                    "Commitment is correct! Do you want to download the encrypted file ?"
+                    "Commitment is correct! Do you want to save the encrypted file ?"
                 )
             ) {
                 downloadFile(ct, "encrypted_file.bin");
