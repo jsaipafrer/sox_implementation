@@ -99,6 +99,7 @@ library CircuitEvaluator {
         return AES128CtrEvaluator.encryptBlock(_data);
     }
 
+    // Internal wrapper for AES128CtrEvaluator.decryptBlock
     function decryptBlock(
         bytes[] memory _data
     ) internal pure returns (bytes memory) {
