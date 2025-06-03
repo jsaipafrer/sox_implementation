@@ -8,12 +8,12 @@ mod accumulator;
 use std::cmp::min;
 use alloy_sol_types::private::bytes;
 use wasm_bindgen::prelude::*;
-use js_sys::Uint8Array;
+use js_sys::{Array, Uint8Array, BigInt};
 use serde::{Deserialize, Serialize};
 use rmp_serde::{encode::write, decode::from_read};
 use alloy_sol_types::SolValue;
 use rand::RngCore;
-use crate::accumulator::{acc_circuit, acc_ct, acc, prove_ext, prove};
+use crate::accumulator::{acc_circuit, acc_ct, acc, prove_ext, prove, proof_to_js_array};
 use crate::commitment::{commit_internal, hex_to_bytes, bytes_to_hex, open_commitment_internal, commit_hashes, Commitment};
 use crate::encryption::{decrypt, encrypt_and_prepend_iv};
 use crate::sha256::sha256;
@@ -340,7 +340,7 @@ pub fn compile_basic_circuit(ct_size: usize, description: &[u8]) -> CompiledCirc
         constants: vec![
             Some(4u16.to_be_bytes().to_vec()),            // counter increment
             Some(description.to_vec()),                   // description
-            Some(pt_size.to_be_bytes().to_vec()),      // size of the ciphertext
+            Some((pt_size as u64).to_be_bytes().to_vec()),      // size of the ciphertext
             None,                                         // key placeholder
         ],
         version: 0,
@@ -679,25 +679,25 @@ pub fn hpre(evaluated_circuit_bytes: &[u8], num_blocks: usize, challenge: usize)
 #[wasm_bindgen]
 pub struct FinalStepComponents {
     #[wasm_bindgen(getter_with_clone)]
-    pub gate: Vec<u8>,
+    pub gate: Vec<BigInt>,
 
     #[wasm_bindgen(getter_with_clone)]
-    pub values: Vec<u8>,
+    pub values: Vec<Uint8Array>,
 
     #[wasm_bindgen(getter_with_clone)]
     pub curr_acc: Vec<u8>,
 
     #[wasm_bindgen(getter_with_clone)]
-    pub proof1: Vec<u8>,
+    pub proof1: Array,
 
     #[wasm_bindgen(getter_with_clone)]
-    pub proof2: Vec<u8>,
+    pub proof2: Array,
 
     #[wasm_bindgen(getter_with_clone)]
-    pub proof3: Vec<u8>,
+    pub proof3: Array,
 
     #[wasm_bindgen(getter_with_clone)]
-    pub proof_ext: Vec<u8>,
+    pub proof_ext: Array,
 }
 
 fn split_sons_indices(sons: &[usize], num_blocks: usize) -> (Vec<usize>, Vec<usize>) {
@@ -731,17 +731,16 @@ pub fn compute_proofs(circuit_bytes: &[u8], evaluated_circuit_bytes: &[u8], ct: 
     let proof_ext = prove_ext(&evaluated_circuit.values[num_blocks..challenge]);
 
     let values = get_evaluated_sons(&gate, &evaluated_circuit.values, &evaluated_circuit.constants);
-    let gate_flat: Vec<u32> = gate.flatten().into_iter().map(|x| x as u32).collect();
     let curr_acc = acc(&evaluated_circuit.values[num_blocks + 1..challenge]);
 
     FinalStepComponents {
-        gate: gate_flat.abi_encode(),
-        values: values.abi_encode(),
-        curr_acc: curr_acc.abi_encode(),
-        proof1: proof1.abi_encode(),
-        proof2: proof2.abi_encode(),
-        proof3: proof3.abi_encode(),
-        proof_ext: proof_ext.abi_encode(),
+        gate: gate.flatten().iter().map(|&x| BigInt::from(x)).collect(),
+        values: values.iter().map(|&x| Uint8Array::from(x.as_slice())).collect(),
+        curr_acc,
+        proof1: proof_to_js_array(proof1),
+        proof2: proof_to_js_array(proof2),
+        proof3: proof_to_js_array(proof3),
+        proof_ext: proof_to_js_array(proof_ext),
     }
 }
 
@@ -759,26 +758,30 @@ pub fn compute_proofs_left(circuit_bytes: &[u8], evaluated_circuit_bytes: &[u8],
     let proof_ext = prove_ext(&[evaluated_circuit.values[num_blocks].clone()]);
 
     let values = get_evaluated_sons(&gate, &evaluated_circuit.values, &evaluated_circuit.constants);
-    let gate_flat: Vec<u32> = gate.flatten().into_iter().map(|x| x as u32).collect();
     let curr_acc = acc(&evaluated_circuit.values[num_blocks + 1..challenge]);
 
     FinalStepComponents {
-        gate: gate_flat.abi_encode(),
-        values: values.abi_encode(),
-        curr_acc: curr_acc.abi_encode(),
-        proof1: proof1.abi_encode(),
-        proof2: proof2.abi_encode(),
-        proof3: vec![],
-        proof_ext: proof_ext.abi_encode(),
+        gate: gate.flatten().iter().map(|&x| BigInt::from(x)).collect(),
+        values: values.iter().map(|&x| Uint8Array::from(x.as_slice())).collect(),
+        curr_acc,
+        proof1: proof_to_js_array(proof1),
+        proof2: proof_to_js_array(proof2),
+        proof3: Array::new(),
+        proof_ext: proof_to_js_array(proof_ext),
     }
 }
 
 // 8c
 #[wasm_bindgen]
-pub fn compute_proof_right(evaluated_circuit_bytes: &[u8], num_blocks: usize, num_gates: usize) -> Vec<u8> {
+pub fn compute_proof_right(evaluated_circuit_bytes: &[u8], num_blocks: usize, num_gates: usize) -> Array {
     let evaluated_circuit = EvaluatedCircuit::from_bytes(evaluated_circuit_bytes);
 
-    prove(&evaluated_circuit.values[num_blocks..num_gates], &[num_gates - num_blocks]).abi_encode()
+    proof_to_js_array(
+        prove(
+            &evaluated_circuit.values[num_blocks..num_gates],
+            &[num_gates - num_blocks]
+        )
+    )
 }
 
 

@@ -1,3 +1,4 @@
+use std::u64;
 use sha2::{Digest, Sha256};
 use sha2_compress::{Sha2, SHA256};
 
@@ -41,17 +42,22 @@ pub fn sha256_compress(data: &Vec<&Vec<u8>>) -> Vec<u8> {
     array_u32_to_js_u8_array(&res)
 }
 
-fn sha256_padding(data_len: usize) -> Vec<u8> {
-    let data_len_bits = data_len * 8;
-    let mut padding = vec![0x80u8];
-
-    while (padding.len() * 8 + data_len_bits) % 512 != 448 {
-        padding.push(0u8);
+fn sha256_padding(last_block: &Vec<u8>, data_len: u64) -> Vec<u8> {
+    let mut padded_len = last_block.len() + 9;
+    if padded_len < 64 {
+        padded_len = 64
+    } else if padded_len > 64 {
+        padded_len = 128
     }
 
-    padding.extend(&(data_len_bits as u64).to_be_bytes());
+    let mut padded = vec![0u8; padded_len - 8];
+    for i in 0..last_block.len() {
+        padded[i] = last_block[i];
+    }
+    padded[last_block.len()] = 0x80;
+    padded.extend(&(data_len * 8).to_be_bytes());
 
-    padding
+    padded
 }
 
 /*
@@ -63,27 +69,24 @@ pub fn sha256_compress_final(data: &Vec<&Vec<u8>>) -> Vec<u8> {
     let prev_hash = if data.len() == 2 { SHA256 } else { js_u8_array_to_array_u32(data[0]) };
     let curr_block = if data.len() == 2 { data[0] } else { data[1] };
     let data_len = if data.len() == 2 {
-        usize::from_be_bytes(data[1].clone().try_into().unwrap())
+        u64::from_be_bytes(data[1].clone().try_into().unwrap())
     } else {
-        usize::from_be_bytes(data[2].clone().try_into().unwrap())
+        u64::from_be_bytes(data[2].clone().try_into().unwrap())
     };
 
-    let new_blocks = [curr_block.clone(), sha256_padding(data_len)].concat();
-    let h1 = js_u8_array_to_array_u32(&new_blocks[..32]);
-    let h2 = js_u8_array_to_array_u32(&new_blocks[32..64]);
-    let res = prev_hash.compress(&h1, &h2);
+    let padded = sha256_padding(&curr_block, data_len);
+    let h1 = js_u8_array_to_array_u32(&padded[..32]);
+    let h2 = js_u8_array_to_array_u32(&padded[32..64]);
+    let mut res = prev_hash.compress(&h1, &h2);
 
-    if new_blocks.len() > 64 {
+    if padded.len() > 64 {
         // an extra block left due to the padding
-        let h1 = js_u8_array_to_array_u32(&new_blocks[64..96]);
-        let h2 = js_u8_array_to_array_u32(&new_blocks[96..]);
-        let res = res.compress(&h1, &h2);
-
-        array_u32_to_js_u8_array(&res)
-    } else {
-        // hashing done
-        array_u32_to_js_u8_array(&res)
+        let h1 = js_u8_array_to_array_u32(&padded[64..96]);
+        let h2 = js_u8_array_to_array_u32(&padded[96..]);
+        res = res.compress(&h1, &h2);
     }
+
+    array_u32_to_js_u8_array(&res)
 }
 
 pub fn sha256(data: &[u8]) -> Vec<u8> {

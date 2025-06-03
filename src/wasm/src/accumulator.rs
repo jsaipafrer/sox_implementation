@@ -1,3 +1,4 @@
+use js_sys::{Array, Uint8Array};
 use rand::{Rng, RngCore};
 use rand::prelude::SliceRandom;
 use sha3::{Digest, Keccak256};
@@ -230,6 +231,14 @@ fn hash(data: &Vec<u8>) -> Vec<u8> {
     hasher.update(&hashee);
 
     hasher.finalize().to_vec()
+}
+
+pub fn proof_to_js_array(proof: Vec<Vec<Vec<u8>>>) -> Array {
+    Array::from_iter(proof
+        .iter()
+        .map(|l| Array::from_iter(l
+            .iter()
+            .map(|v| Uint8Array::from(v.as_slice())))))
 }
 
 // =================================================================================================

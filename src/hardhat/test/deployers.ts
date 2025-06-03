@@ -1,7 +1,8 @@
 import hre from "hardhat";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { bytesToHex } from "../../app/lib/helpers";
+import { readFile } from "node:fs/promises";
+import { bytes_to_hex, initSync } from "../../app/lib/circuits/wasm/circuits";
 
 const { ethers } = hre;
 
@@ -13,6 +14,9 @@ export async function deployRealContracts(
     sponsor: HardhatEthersSigner,
     buyer: HardhatEthersSigner,
     vendor: HardhatEthersSigner,
+    numBlocks?: number,
+    numGates?: number,
+    commitment?: Uint8Array,
     withRandomValues?: boolean
 ) {
     const GWEI_MULT = 1_000_000_000n;
@@ -29,17 +33,17 @@ export async function deployRealContracts(
     const circuitEvaluator = await CircuitEvaluatorFactory.deploy();
     await circuitEvaluator.waitForDeployment();
 
-    const CommitmentVerifierFactory = await ethers.getContractFactory(
-        "CommitmentVerifier"
+    const CommitmentOpenerFactory = await ethers.getContractFactory(
+        "CommitmentOpener"
     );
-    const commitmentVerifier = await CommitmentVerifierFactory.deploy();
-    await commitmentVerifier.waitForDeployment();
+    const commitmentOpener = await CommitmentOpenerFactory.deploy();
+    await commitmentOpener.waitForDeployment();
 
     const libFactory = await ethers.getContractFactory("DisputeDeployer", {
         libraries: {
             AccumulatorVerifier: await accumulatorVerifier.getAddress(),
             CircuitEvaluator: await circuitEvaluator.getAddress(),
-            CommitmentVerifier: await commitmentVerifier.getAddress(),
+            CommitmentOpener: await commitmentOpener.getAddress(),
         },
     });
     const disputeDeployer = await libFactory.connect(sponsor).deploy();
@@ -50,18 +54,15 @@ export async function deployRealContracts(
     let completionTip = 80n * GWEI_MULT;
     let disputeTip = 120n * GWEI_MULT;
     let timeoutIncrement = 3600n; // 1 hour
-    let num_blocks = 1024n;
-    let num_gates = 4n * num_blocks + 1n;
-    let commitment = new Uint8Array(32);
+    numBlocks = numBlocks ? numBlocks : 1024;
+    numGates = numGates ? numGates : 4 * numBlocks + 1;
+    commitment = commitment ? commitment : new Uint8Array(32);
 
     if (withRandomValues) {
         sponsorAmount = BigInt(randInt(250, 1001)) * GWEI_MULT;
         agreedPrice = BigInt(randInt(1, 101)) * GWEI_MULT;
         completionTip = BigInt(randInt(1, 111)) * GWEI_MULT;
         disputeTip = BigInt(randInt(20, 201)) * GWEI_MULT;
-        timeoutIncrement = BigInt(randInt(60, 121));
-        num_blocks = BigInt(randInt(512, 2048));
-        num_gates = 4n * num_blocks + BigInt(randInt(512, 2048));
     }
 
     const factory = await ethers.getContractFactory("OptimisticSOX", {
@@ -70,7 +71,6 @@ export async function deployRealContracts(
         },
     });
 
-    const commitmentHex = bytesToHex(commitment, true);
     const contract = await factory
         .connect(sponsor)
         .deploy(
@@ -80,9 +80,9 @@ export async function deployRealContracts(
             completionTip,
             disputeTip,
             timeoutIncrement,
-            commitmentHex,
-            num_gates,
-            num_blocks,
+            commitment,
+            numGates,
+            numBlocks,
             {
                 value: sponsorAmount,
             }
@@ -99,7 +99,7 @@ export async function deployRealContracts(
         disputeDeployer,
         accumulatorVerifier,
         circuitEvaluator,
-        commitmentVerifier,
+        commitmentOpener,
     };
 }
 
@@ -135,11 +135,11 @@ export async function deployDisputeWithMockOptimistic(
     const circuitEvaluator = await CircuitEvaluatorFactory.deploy();
     await circuitEvaluator.waitForDeployment();
 
-    const CommitmentVerifierFactory = await ethers.getContractFactory(
-        "CommitmentVerifier"
+    const CommitmentOpenerFactory = await ethers.getContractFactory(
+        "CommitmentOpener"
     );
-    const commitmentVerifier = await CommitmentVerifierFactory.deploy();
-    await commitmentVerifier.waitForDeployment();
+    const commitmentOpener = await CommitmentOpenerFactory.deploy();
+    await commitmentOpener.waitForDeployment();
 
     const OptimisticSOXFactory = await ethers.getContractFactory(
         "MockOptimisticSOX"
@@ -159,7 +159,7 @@ export async function deployDisputeWithMockOptimistic(
         libraries: {
             AccumulatorVerifier: await accumulatorVerifier.getAddress(),
             CircuitEvaluator: await circuitEvaluator.getAddress(),
-            CommitmentVerifier: await commitmentVerifier.getAddress(),
+            CommitmentOpener: await commitmentOpener.getAddress(),
         },
     });
 
@@ -178,7 +178,7 @@ export async function deployDisputeWithMockOptimistic(
         timeoutIncrement,
         accumulatorVerifier,
         circuitEvaluator,
-        commitmentVerifier,
+        commitmentOpener,
         optimistic,
     };
 }

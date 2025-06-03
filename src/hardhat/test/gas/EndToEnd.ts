@@ -1,66 +1,67 @@
 import hre from "hardhat";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { commit } from "../../../app/lib/commitment";
 import { deployRealContracts } from "../deployers";
-import { acc, prove, proveExt } from "../../../app/lib/accumulator";
+import { readFile } from "node:fs/promises";
 import {
-    compileBasicCircuit,
-    compileSHAOnlyCircuit,
-} from "../../../app/lib/circuits/compilator";
-import { circuitToBytesArray } from "../../../app/lib/helpers";
-import { evaluateCircuit } from "../../../app/lib/circuits/evaluator";
+    bytes_to_hex,
+    compute_precontract_values,
+    compute_proofs,
+    evaluate_circuit,
+    hpre,
+    initSync,
+} from "../../../app/lib/circuits/wasm/circuits";
 
 const { ethers } = hre;
 
-const NB_RUNS = 1;
+const NB_RUNS = 100;
 
 /*
 ··························································································································
 |  Solidity and Network Configuration                                                                                    │
-·····································|··················|···············|················|································
-|  Solidity: 0.8.28                  ·  Optim: false    ·  Runs: 200    ·  viaIR: true   ·     Block: 30,000,000 gas     │
-·····································|··················|···············|················|································
-|  Network: ETHEREUM                 ·  L1: 3 gwei                      ·                ·        2674.33 usd/eth        │
-·····································|··················|···············|················|················|···············
-|  Contracts / Methods               ·  Min             ·  Max          ·  Avg           ·  # calls       ·  usd (avg)   │
-·····································|··················|···············|················|················|···············
+·····································|·················|················|················|································
+|  Solidity: 0.8.28                  ·  Optim: true    ·  Runs: 1000    ·  viaIR: true   ·     Block: 30,000,000 gas     │
+·····································|·················|················|················|································
+|  Network: ETHEREUM                 ·  L1: 6 gwei                      ·                ·        2620.35 usd/eth        │
+·····································|·················|················|················|················|···············
+|  Contracts / Methods               ·  Min            ·  Max           ·  Avg           ·  # calls       ·  usd (avg)   │
+·····································|·················|················|················|················|···············
 |  DisputeSOX                        ·                                                                                   │
-·····································|··················|···············|················|················|···············
-|      giveOpinion                   ·          51,863  ·       56,825  ·        52,381  ·           160  ·        0.42  │
-·····································|··················|···············|················|················|···············
-|      respondChallenge              ·               -  ·            -  ·        62,822  ·           160  ·        0.50  │
-·····································|··················|···············|················|················|···············
-|      submitCommitment              ·               -  ·            -  ·     1,054,496  ·            10  ·        8.46  │
-·····································|··················|···············|················|················|···············
+·····································|·················|················|················|················|···············
+|      giveOpinion                   ·         48,606  ·        53,132  ·        48,923  ·          1700  ·        0.77  │
+·····································|·················|················|················|················|···············
+|      respondChallenge              ·         60,680  ·        60,692  ·        60,690  ·          1700  ·        0.95  │
+·····································|·················|················|················|················|···············
+|      submitCommitment              ·              -  ·             -  ·       159,691  ·           100  ·        2.51  │
+·····································|·················|················|················|················|···············
 |  OptimisticSOX                     ·                                                                                   │
-·····································|··················|···············|················|················|···············
-|      registerBuyerDisputeSponsor   ·               -  ·            -  ·        84,928  ·            10  ·        0.68  │
-·····································|··················|···············|················|················|···············
-|      registerVendorDisputeSponsor  ·               -  ·            -  ·        85,456  ·            10  ·        0.69  │
-·····································|··················|···············|················|················|···············
-|      sendBuyerDisputeSponsorFee    ·               -  ·            -  ·        60,304  ·            10  ·        0.48  │
-·····································|··················|···············|················|················|···············
-|      sendKey                       ·               -  ·            -  ·        60,799  ·            10  ·        0.49  │
-·····································|··················|···············|················|················|···············
-|      sendPayment                   ·               -  ·            -  ·       104,465  ·            10  ·        0.84  │
-·····································|··················|···············|················|················|···············
-|      sendVendorDisputeSponsorFee   ·               -  ·            -  ·        60,260  ·            10  ·        0.48  │
-·····································|··················|···············|················|················|···············
-|      startDispute                  ·               -  ·            -  ·     3,605,503  ·            10  ·       28.93  │
-·····································|··················|···············|················|················|···············
-|  Deployments                                          ·                                ·  % of limit    ·              │
-·····································|··················|···············|················|················|···············
-|  AccumulatorVerifier               ·               -  ·            -  ·     1,127,352  ·         3.8 %  ·        9.04  │
-·····································|··················|···············|················|················|···············
-|  CircuitEvaluator                  ·               -  ·            -  ·     3,583,354  ·        11.9 %  ·       28.75  │
-·····································|··················|···············|················|················|···············
-|  CommitmentVerifier                ·               -  ·            -  ·       406,656  ·         1.4 %  ·        3.26  │
-·····································|··················|···············|················|················|···············
-|  DisputeDeployer                   ·       4,309,719  ·    4,309,815  ·     4,309,803  ·        14.4 %  ·       34.58  │
-·····································|··················|···············|················|················|···············
-|  OptimisticSOX                     ·       2,317,791  ·    2,317,803  ·     2,317,802  ·         7.7 %  ·       18.60  │
-·····································|··················|···············|················|················|···············
+·····································|·················|················|················|················|···············
+|      registerBuyerDisputeSponsor   ·              -  ·             -  ·        82,563  ·           100  ·        1.30  │
+·····································|·················|················|················|················|···············
+|      registerVendorDisputeSponsor  ·              -  ·             -  ·        83,135  ·           100  ·        1.31  │
+·····································|·················|················|················|················|···············
+|      sendBuyerDisputeSponsorFee    ·              -  ·             -  ·        58,434  ·           100  ·        0.92  │
+·····································|·················|················|················|················|···············
+|      sendKey                       ·              -  ·             -  ·        58,977  ·           100  ·        0.93  │
+·····································|·················|················|················|················|···············
+|      sendPayment                   ·              -  ·             -  ·       101,564  ·           100  ·        1.60  │
+·····································|·················|················|················|················|···············
+|      sendVendorDisputeSponsorFee   ·              -  ·             -  ·        58,390  ·           100  ·        0.92  │
+·····································|·················|················|················|················|···············
+|      startDispute                  ·              -  ·             -  ·     2,093,945  ·           100  ·       32.92  │
+·····································|·················|················|················|················|···············
+|  Deployments                                         ·                                 ·  % of limit    ·              │
+·····································|·················|················|················|················|···············
+|  AccumulatorVerifier               ·              -  ·             -  ·       540,226  ·         1.8 %  ·        8.49  │
+·····································|·················|················|················|················|···············
+|  CircuitEvaluator                  ·              -  ·             -  ·     1,489,876  ·           5 %  ·       23.42  │
+·····································|·················|················|················|················|···············
+|  CommitmentOpener                  ·              -  ·             -  ·       176,168  ·         0.6 %  ·        2.77  │
+·····································|·················|················|················|················|···············
+|  DisputeDeployer                   ·      2,256,542  ·     2,256,650  ·     2,256,641  ·         7.5 %  ·       35.48  │
+·····································|·················|················|················|················|···············
+|  OptimisticSOX                     ·      1,483,971  ·     1,483,983  ·     1,483,982  ·         4.9 %  ·       23.33  │
+·····································|·················|················|················|················|···············
 |  Key                                                                                                                   │
 ··························································································································
 |  ◯  Execution gas for this method does not include intrinsic gas overhead                                              │
@@ -84,23 +85,34 @@ before(async function () {
 
 describe("End-to-end", function () {
     it("End-to-end with 2^16 ct blocks", async function () {
-        const numBlocks = 1 << 8;
-        const circuit = compileBasicCircuit(numBlocks);
-        const circuitBytes = circuitToBytesArray(circuit.circuit);
-        const hCircuit = acc(circuitBytes);
+        const modulePath = "../../../app/lib/circuits/wasm/circuits_bg.wasm";
+        const module = await readFile(modulePath);
+        initSync({ module: module });
 
-        console.log(numBlocks);
-        console.log(circuit.circuit.length);
+        const fileBlocks = 1 << 16;
+        const file = new Uint8Array(fileBlocks * 64);
+        const key = new Uint8Array(16);
 
-        const ct = [];
-        for (let i = 0; i < numBlocks; ++i) ct.push(new Uint8Array(64));
-        circuit.constants[0] = new Uint8Array(32);
-        const [, values] = await evaluateCircuit(ct, circuit);
-        const hCt = acc(ct);
+        const {
+            ct,
+            circuit_bytes,
+            description,
+            h_ct,
+            h_circuit,
+            commitment,
+            num_blocks,
+            num_gates,
+        } = compute_precontract_values(file, key);
 
-        const commitment = commit(hCircuit, hCt);
+        const evaluated_bytes = evaluate_circuit(
+            circuit_bytes,
+            ct,
+            [bytes_to_hex(key)],
+            bytes_to_hex(description)
+        ).to_bytes();
 
         for (let i = 0; i < NB_RUNS; ++i) {
+            console.log(i);
             const {
                 contract: optimisticContract,
                 sponsorAmount,
@@ -111,8 +123,15 @@ describe("End-to-end", function () {
                 disputeDeployer,
                 accumulatorVerifier,
                 circuitEvaluator,
-                commitmentVerifier,
-            } = await deployRealContracts(sponsor, buyer, vendor);
+                commitmentOpener,
+            } = await deployRealContracts(
+                sponsor,
+                buyer,
+                vendor,
+                num_blocks,
+                num_gates,
+                commitment.c
+            );
 
             // buyer sends payment
             await optimisticContract
@@ -120,9 +139,7 @@ describe("End-to-end", function () {
                 .sendPayment({ value: agreedPrice + completionTip });
 
             // vendor sends key
-            await optimisticContract
-                .connect(vendor)
-                .sendKey(ethers.toUtf8Bytes("key"));
+            await optimisticContract.connect(vendor).sendKey(key);
 
             // buyer registers its dispute sponsor
             await optimisticContract
@@ -151,11 +168,7 @@ describe("End-to-end", function () {
             // sb starts the dispute
             await optimisticContract
                 .connect(buyerDisputeSponsor)
-                .startDispute(
-                    numBlocks,
-                    BigInt(circuit.circuit.length),
-                    commitment
-                );
+                .startDispute();
 
             const disputeContractAddr =
                 await optimisticContract.disputeContract();
@@ -167,8 +180,8 @@ describe("End-to-end", function () {
             // do challenge-response until we get to state WaitVendorData
             // buyer responds to challenge
             let challenge = await disputeContract.chall();
-            let hpre = acc(values.slice(numBlocks, Number(challenge)));
-            await disputeContract.connect(buyer).respondChallenge(hpre);
+            let hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
+            await disputeContract.connect(buyer).respondChallenge(hpre_res);
 
             // vendor disagrees once
             await disputeContract.connect(vendor).giveOpinion(false);
@@ -178,8 +191,8 @@ describe("End-to-end", function () {
             while (state == 0n) {
                 // buyer responds to challenge
                 challenge = await disputeContract.chall();
-                hpre = acc(values.slice(numBlocks, Number(challenge)));
-                await disputeContract.connect(buyer).respondChallenge(hpre);
+                hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
+                await disputeContract.connect(buyer).respondChallenge(hpre_res);
 
                 // vendor decides randomly if they agree or not
                 await disputeContract.connect(vendor).giveOpinion(true);
@@ -190,49 +203,36 @@ describe("End-to-end", function () {
             if (state != 2n) throw new Error("unexpected state, should be 2");
 
             // vendor submits its commitment and the proofs
-            let sInL = [];
-            let sNotInLMinusM = [];
-            const hCircuitCt: [Uint8Array, Uint8Array] = [hCircuit, hCt];
             const gateNum = await disputeContract.a();
-            const gate = circuit.circuit[Number(gateNum)].flat();
 
-            for (let i = 1; i < gate.length; ++i) {
-                if (gate[i] <= numBlocks) {
-                    sInL.push(gate[i]);
-                } else {
-                    sNotInLMinusM.push(gate[i] - numBlocks);
-                }
-            }
-
-            let submissionValues = [];
-            for (let i = 1; i < gate.length; ++i) {
-                submissionValues.push(values[gate[i]]);
-            }
-
-            // FIXME check indices !!
-            const version = 0n;
-            const currAcc = acc(circuitBytes.slice(numBlocks, Number(gateNum)));
-            const proof1 = prove(circuitBytes, [Number(gateNum)]);
-            const proof2 = prove(ct, sInL);
-            const proof3 = prove(
-                values.slice(numBlocks, Number(gateNum)),
-                sNotInLMinusM
+            const {
+                gate,
+                values,
+                curr_acc,
+                proof1,
+                proof2,
+                proof3,
+                proof_ext,
+            } = compute_proofs(
+                circuit_bytes,
+                evaluated_bytes,
+                ct,
+                Number(gateNum)
             );
-            const proofExt = proveExt(values.slice(numBlocks, Number(gateNum)));
 
             await disputeContract
                 .connect(vendor)
                 .submitCommitment(
-                    hCircuitCt,
+                    commitment.o,
                     gateNum,
                     gate,
-                    submissionValues,
-                    version,
-                    currAcc,
+                    values,
+                    0,
+                    curr_acc,
                     proof1,
                     proof2,
                     proof3,
-                    proofExt
+                    proof_ext
                 );
         }
     });

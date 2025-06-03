@@ -7,7 +7,7 @@ import { ZeroHash } from "ethers";
 import {
     AccumulatorVerifier,
     CircuitEvaluator,
-    CommitmentVerifier,
+    CommitmentOpener,
     DisputeSOX,
     MockOptimisticSOX,
 } from "../typechain-types";
@@ -26,7 +26,7 @@ describe("DisputeSOX", function () {
     let vendorDisputeSponsor: HardhatEthersSigner;
     let accumulatorVerifier: AccumulatorVerifier;
     let circuitEvaluator: CircuitEvaluator;
-    let commitmentVerifier: CommitmentVerifier;
+    let commitmentOpener: CommitmentOpener;
     let contract: DisputeSOX;
     let optimistic: MockOptimisticSOX;
     let agreedPrice: bigint;
@@ -59,11 +59,11 @@ describe("DisputeSOX", function () {
         circuitEvaluator = await CircuitEvaluatorFactory.deploy();
         await circuitEvaluator.waitForDeployment();
 
-        const CommitmentVerifierFactory = await ethers.getContractFactory(
-            "MockCommitmentVerifier"
+        const CommitmentOpenerFactory = await ethers.getContractFactory(
+            "MockCommitmentOpener"
         );
-        commitmentVerifier = await CommitmentVerifierFactory.deploy();
-        await commitmentVerifier.waitForDeployment();
+        commitmentOpener = await CommitmentOpenerFactory.deploy();
+        await commitmentOpener.waitForDeployment();
 
         const OptimisticSOXFactory = await ethers.getContractFactory(
             "MockOptimisticSOX"
@@ -85,7 +85,7 @@ describe("DisputeSOX", function () {
                 libraries: {
                     AccumulatorVerifier: await accumulatorVerifier.getAddress(),
                     CircuitEvaluator: await circuitEvaluator.getAddress(),
-                    CommitmentVerifier: await commitmentVerifier.getAddress(),
+                    CommitmentOpener: await commitmentOpener.getAddress(),
                 },
             }
         );
@@ -219,8 +219,7 @@ describe("DisputeSOX", function () {
                         AccumulatorVerifier:
                             await accumulatorVerifier.getAddress(),
                         CircuitEvaluator: await circuitEvaluator.getAddress(),
-                        CommitmentVerifier:
-                            await commitmentVerifier.getAddress(),
+                        CommitmentVerifier: await commitmentOpener.getAddress(),
                     },
                 }
             );
@@ -246,8 +245,7 @@ describe("DisputeSOX", function () {
                         AccumulatorVerifier:
                             await accumulatorVerifier.getAddress(),
                         CircuitEvaluator: await circuitEvaluator.getAddress(),
-                        CommitmentVerifier:
-                            await commitmentVerifier.getAddress(),
+                        CommitmentVerifier: await commitmentOpener.getAddress(),
                     },
                 }
             );
@@ -382,7 +380,7 @@ describe("DisputeSOX", function () {
             await contract
                 .connect(vendor)
                 .submitCommitment(
-                    ["0x00", "0x00"],
+                    new Uint8Array(80),
                     await contract.chall(),
                     [3],
                     [],
@@ -403,7 +401,7 @@ describe("DisputeSOX", function () {
             await contract
                 .connect(vendor)
                 .submitCommitment(
-                    ["0x00", "0x00"],
+                    new Uint8Array(80),
                     await contract.chall(),
                     [0, 1, 2],
                     [
@@ -426,7 +424,7 @@ describe("DisputeSOX", function () {
 
             await expect(
                 contract.submitCommitment(
-                    ["0x00", "0x00"],
+                    new Uint8Array(80),
                     5,
                     [0, 1, 2],
                     [

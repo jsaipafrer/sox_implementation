@@ -66,8 +66,8 @@ n = O(m^3) resulted in heap overflow
 */
 
 /*
-    Gas cost of challenge-response: 50k-55k gas for `giveOpinion`
-                                    + 62-63k gas for `respondChallenge`
+    Gas cost of challenge-response: 50k-55k gas for `giveOpinion`       (vendor)
+                                    + 62-63k gas for `respondChallenge` (buyer)
  */
 
 let buyer: HardhatEthersSigner;

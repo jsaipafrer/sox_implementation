@@ -1,48 +1,52 @@
 import hre from "hardhat";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { commit } from "../../../app/lib/commitment";
 import { deployDisputeWithMockOptimistic } from "../deployers";
-import { compileSHAOnlyCircuit } from "../../../app/lib/circuits/compilator";
-import { acc, prove, proveExt } from "../../../app/lib/accumulator";
-import { circuitToBytesArray } from "../../../app/lib/helpers";
-import { evaluateCircuit } from "../../../app/lib/circuits/evaluator";
+import { readFile } from "node:fs/promises";
+import {
+    bytes_to_hex,
+    compute_precontract_values,
+    compute_proofs,
+    evaluate_circuit,
+    hpre,
+    initSync,
+} from "../../../app/lib/circuits/wasm/circuits";
 
 const { ethers } = hre;
 
-const NB_RUNS = 1;
+const NB_RUNS = 100;
 
 /*
-ONLY 10 RUNS!!!
+for num_blocks == 2**16
 ··············································································································
 |  Solidity and Network Configuration                                                                        │
-·························|··················|···············|················|································
-|  Solidity: 0.8.28      ·  Optim: false    ·  Runs: 200    ·  viaIR: true   ·     Block: 30,000,000 gas     │
-·························|··················|···············|················|································
-|  Network: ETHEREUM     ·  L1: 0.99323 gwei                ·                ·        2524.98 usd/eth        │
-·························|··················|···············|················|················|···············
-|  Contracts / Methods   ·  Min             ·  Max          ·  Avg           ·  # calls       ·  usd (avg)   │
-·························|··················|···············|················|················|···············
+·························|·················|················|················|································
+|  Solidity: 0.8.28      ·  Optim: true    ·  Runs: 1000    ·  viaIR: true   ·     Block: 30,000,000 gas     │
+·························|·················|················|················|································
+|  Network: ETHEREUM     ·  L1: 10 gwei                     ·                ·        2613.07 usd/eth        │
+·························|·················|················|················|················|···············
+|  Contracts / Methods   ·  Min            ·  Max           ·  Avg           ·  # calls       ·  usd (avg)   │
+·························|·················|················|················|················|···············
 |  DisputeSOX            ·                                                                                   │
-·························|··················|···············|················|················|···············
-|      giveOpinion       ·          51,863  ·       56,825  ·        52,381  ·           160  ·        0.13  │
-·························|··················|···············|················|················|···············
-|      respondChallenge  ·               -  ·            -  ·        62,822  ·           160  ·        0.16  │
-·························|··················|···············|················|················|···············
-|      submitCommitment  ·               -  ·            -  ·     1,054,496  ·            10  ·        2.64  │
-·························|··················|···············|················|················|···············
-|  Deployments                              ·                                ·  % of limit    ·              │
-·························|··················|···············|················|················|···············
-|  AccumulatorVerifier   ·               -  ·            -  ·     1,127,352  ·         3.8 %  ·        2.83  │
-·························|··················|···············|················|················|···············
-|  CircuitEvaluator      ·               -  ·            -  ·     3,583,354  ·        11.9 %  ·        8.99  │
-·························|··················|···············|················|················|···············
-|  CommitmentVerifier    ·               -  ·            -  ·       406,656  ·         1.4 %  ·        1.02  │
-·························|··················|···············|················|················|···············
-|  DisputeSOX            ·       3,883,193  ·    3,883,289  ·     3,883,275  ·        12.9 %  ·        9.74  │
-·························|··················|···············|················|················|···············
-|  MockOptimisticSOX     ·               -  ·            -  ·       505,595  ·         1.7 %  ·        1.27  │
-·························|··················|···············|················|················|···············
+·························|·················|················|················|················|···············
+|      giveOpinion       ·         48,606  ·        53,132  ·        48,923  ·          1700  ·        1.28  │
+·························|·················|················|················|················|···············
+|      respondChallenge  ·         60,680  ·        60,692  ·        60,691  ·          1700  ·        1.59  │
+·························|·················|················|················|················|···············
+|      submitCommitment  ·              -  ·             -  ·       159,775  ·           100  ·        4.18  │
+·························|·················|················|················|················|···············
+|  Deployments                             ·                                 ·  % of limit    ·              │
+·························|·················|················|················|················|···············
+|  AccumulatorVerifier   ·              -  ·             -  ·       540,226  ·         1.8 %  ·       14.12  │
+·························|·················|················|················|················|···············
+|  CircuitEvaluator      ·              -  ·             -  ·     1,489,876  ·           5 %  ·       38.93  │
+·························|·················|················|················|················|···············
+|  CommitmentOpener      ·              -  ·             -  ·       176,168  ·         0.6 %  ·        4.60  │
+·························|·················|················|················|················|···············
+|  DisputeSOX            ·      2,227,124  ·     2,227,244  ·     2,227,234  ·         7.4 %  ·       58.20  │
+·························|·················|················|················|················|···············
+|  MockOptimisticSOX     ·              -  ·             -  ·       333,710  ·         1.1 %  ·        8.72  │
+·························|·················|················|················|················|···············
 |  Key                                                                                                       │
 ··············································································································
 |  ◯  Execution gas for this method does not include intrinsic gas overhead                                  │
@@ -66,18 +70,32 @@ before(async function () {
 
 describe("DisputeSOX", function () {
     it("Only the dispute, ciphertext of 2^16 blocks with only sha256", async function () {
-        const numBlocks = 1 << 16;
-        const circuit = compileSHAOnlyCircuit(numBlocks);
-        const circuitBytes = circuitToBytesArray(circuit.circuit);
-        const hCircuit = acc(circuitBytes);
+        const module = await readFile(
+            "../../../app/lib/circuits/wasm/circuits_bg.wasm"
+        );
+        initSync({ module: module });
 
-        const ct = [];
-        for (let i = 0; i < numBlocks; ++i) ct.push(new Uint8Array(64));
-        circuit.constants[0] = new Uint8Array(32);
-        const [circuitRes, values] = await evaluateCircuit(ct, circuit);
-        const hCt = acc(ct);
+        const fileBlocks = 1 << 16;
+        const file = new Uint8Array(fileBlocks * 64);
+        const key = new Uint8Array(16);
 
-        const commitment = commit(hCircuit, hCt);
+        const {
+            ct,
+            circuit_bytes,
+            description,
+            h_ct,
+            h_circuit,
+            commitment,
+            num_blocks,
+            num_gates,
+        } = compute_precontract_values(file, key);
+
+        const evaluated_bytes = evaluate_circuit(
+            circuit_bytes,
+            ct,
+            [bytes_to_hex(key)],
+            bytes_to_hex(description)
+        ).to_bytes();
 
         for (let i = 0; i < NB_RUNS; ++i) {
             console.log(`run ${i}`);
@@ -87,34 +105,23 @@ describe("DisputeSOX", function () {
                 timeoutIncrement,
                 accumulatorVerifier,
                 circuitEvaluator,
-                commitmentVerifier,
+                commitmentOpener,
                 optimistic,
             } = await deployDisputeWithMockOptimistic(
-                BigInt(numBlocks),
-                BigInt(circuit.circuit.length),
-                commitment,
+                BigInt(num_blocks),
+                BigInt(num_gates),
+                commitment.c,
                 buyer,
                 vendor,
                 buyerDisputeSponsor,
                 vendorDisputeSponsor
             );
 
-            /*
-                ChallengeBuyer,
-                WaitVendorOpinion,
-                WaitVendorData,
-                WaitVendorDataLeft,
-                WaitVendorDataRight,
-                Complete,
-                Cancel,
-                End
-            */
-
             // do challenge-response until we get to state WaitVendorData
             // buyer responds to challenge
             let challenge = await contract.chall();
-            let hpre = acc(values.slice(numBlocks, Number(challenge)));
-            await contract.connect(buyer).respondChallenge(hpre);
+            let hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
+            await contract.connect(buyer).respondChallenge(hpre_res);
 
             // vendor disagrees once
             await contract.connect(vendor).giveOpinion(false);
@@ -124,8 +131,8 @@ describe("DisputeSOX", function () {
             while (state == 0n) {
                 // buyer responds to challenge
                 challenge = await contract.chall();
-                hpre = acc(values.slice(numBlocks, Number(challenge)));
-                await contract.connect(buyer).respondChallenge(hpre);
+                hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
+                await contract.connect(buyer).respondChallenge(hpre_res);
 
                 // vendor decides randomly if they agree or not
                 await contract.connect(vendor).giveOpinion(true);
@@ -136,49 +143,36 @@ describe("DisputeSOX", function () {
             if (state != 2n) throw new Error("unexpected state, should be 2");
 
             // vendor submits its commitment and the proofs
-            let sInL = [];
-            let sNotInLMinusM = [];
-            const hCircuitCt: [Uint8Array, Uint8Array] = [hCircuit, hCt];
             const gateNum = await contract.a();
-            const gate = circuit.circuit[Number(gateNum)].flat();
 
-            for (let i = 1; i < gate.length; ++i) {
-                if (gate[i] <= numBlocks) {
-                    sInL.push(gate[i]);
-                } else {
-                    sNotInLMinusM.push(gate[i] - numBlocks);
-                }
-            }
-
-            let submissionValues = [];
-            for (let i = 1; i < gate.length; ++i) {
-                submissionValues.push(values[gate[i]]);
-            }
-
-            // FIXME check indices !!
-            const version = 0n;
-            const currAcc = acc(circuitBytes.slice(numBlocks, Number(gateNum)));
-            const proof1 = prove(circuitBytes, [Number(gateNum)]);
-            const proof2 = prove(ct, sInL);
-            const proof3 = prove(
-                values.slice(numBlocks, Number(gateNum)),
-                sNotInLMinusM
+            const {
+                gate,
+                values,
+                curr_acc,
+                proof1,
+                proof2,
+                proof3,
+                proof_ext,
+            } = compute_proofs(
+                circuit_bytes,
+                evaluated_bytes,
+                ct,
+                Number(gateNum)
             );
-            const proofExt = proveExt(values.slice(numBlocks, Number(gateNum)));
 
             await contract
                 .connect(vendor)
                 .submitCommitment(
-                    hCircuitCt,
+                    commitment.o,
                     gateNum,
                     gate,
-                    submissionValues,
-                    version,
-                    currAcc,
-                    proof1,
-                    proof2,
-                    proof3,
-                    proofExt
+                    values,
+                    0n,
+                    curr_acc,
+                    proof1 as Uint8Array[][],
+                    proof2 as Uint8Array[][],
+                    proof3 as Uint8Array[][],
+                    proof_ext as Uint8Array[][]
                 );
         }
     });
