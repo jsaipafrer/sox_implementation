@@ -45,3 +45,5 @@ src/app/uploads
 
 # build target of the wasm
 src/wasm/target
+
+tmp/
