@@ -218,10 +218,15 @@ library SHA256Evaluator {
         bytes memory inputBlock;
         uint64 full_data_length;
 
-        if (_data.length == 3) {
+        if (_data.length == 2) {
             require(
                 _data[0].length == 64,
                 "Block to hash must be 64 bytes long"
+            );
+
+            require(
+                _data[1].length == 8,
+                "Hashed message length must be 8 bytes long"
             );
 
             previousDigest = preparePreviousDigest(_data[0], true);
@@ -236,6 +241,11 @@ library SHA256Evaluator {
             require(
                 _data[1].length == 64,
                 "Block to hash must be 64 bytes long"
+            );
+
+            require(
+                _data[2].length == 8,
+                "Hashed message length must be 8 bytes long"
             );
 
             previousDigest = preparePreviousDigest(_data[0], false);

@@ -2,40 +2,32 @@
 pragma solidity ^0.8.0;
 
 library SimpleOperationsEvaluator {
-    function dummy(bytes[] memory) external pure returns (bytes memory) {
-        bytes memory res = new bytes(32);
-        return res;
-    }
+    function equal(bytes[] memory _data) external pure returns (bytes memory) {
+        require(_data.length >= 2, "Equality requires at least 2 operators");
 
-    function binEquals(
-        bytes[] memory _data
-    ) external pure returns (bytes memory) {
-        require(_data.length == 2, "Equality requires exactly 2 operators");
+        for (uint i = 0; i < _data.length; ++i) {
+            if (_data[0].length != _data[i].length) return new bytes(1);
 
-        bytes memory res = new bytes(32);
-        if (_data[0].length != _data[1].length) return res;
-
-        for (uint i = 0; i < _data[0].length; ++i)
-            if (_data[0][i] != _data[1][i]) return res;
-
-        assembly {
-            mstore(add(res, 32), 1)
+            for (uint j = 0; j < _data[0].length; ++j)
+                if (_data[0][j] != _data[i][j]) return new bytes(1);
         }
 
-        return res;
+        return hex"01";
     }
 
     function binAdd(bytes[] memory _data) external pure returns (bytes memory) {
         require(_data.length == 2, "Addition requires exactly 2 operators");
         require(
-            _data[0].length == 32 && _data[1].length == 32,
-            "Addition operators must be exactly 32 bytes long"
+            _data[0].length <= 16 && _data[1].length <= 16,
+            "Addition operators must be at most 16 bytes long"
         );
 
         unchecked {
             return
                 bytes.concat(
-                    bytes32(uint(bytes32(_data[0])) + uint(bytes32(_data[1])))
+                    bytes16(
+                        uint128(bytes16(_data[0])) + uint128(bytes16(_data[1]))
+                    )
                 );
         }
     }
@@ -48,14 +40,16 @@ library SimpleOperationsEvaluator {
             "Multiplication requires exactly 2 operators"
         );
         require(
-            _data[0].length == 32 && _data[1].length == 32,
-            "Multiplication operators must be exactly 32 bytes long"
+            _data[0].length <= 16 && _data[1].length <= 16,
+            "Multiplication operators must be at most 16 bytes long"
         );
 
         unchecked {
             return
                 bytes.concat(
-                    bytes32(uint(bytes32(_data[0])) * uint(bytes32(_data[1])))
+                    bytes16(
+                        uint128(bytes16(_data[0])) * uint128(bytes16(_data[1]))
+                    )
                 );
         }
     }

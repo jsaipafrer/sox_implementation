@@ -14,7 +14,7 @@ import {
 
 const { ethers } = hre;
 
-const NB_RUNS = 100;
+const NB_RUNS = 1;
 
 /*
 for num_blocks == 2**16
@@ -56,6 +56,28 @@ for num_blocks == 2**16
 |  Toolchain:  hardhat                                                                                       │
 ··············································································································
  */
+
+const SAMPLE_GATES = [
+    [0n, 0n, 0n], // sha256 compression
+    [1n, 1n, 1n, 1n], // AES encrypt 64 bytes
+    [2n, 2n, 2n, 2n], // AES decrypt 64 bytes
+    [3n, 3n, 3n], // binary addition of 16B numbers
+    [4n, 4n, 4n], // binary mult. of 16B numbers
+    [5n, 5n, 5n], // equality check
+    [6n, 6n, 6n, 6n], // concatenation
+    [7n, 7n, 7n, 7n], // sha256 compression + padding
+];
+
+const SAMPLE_VALUES = [
+    [new Uint8Array(32), new Uint8Array(64)], // sha256 compression
+    [new Uint8Array(16), new Uint8Array(64), new Uint8Array(16)], // AES encrypt 64 bytes
+    [new Uint8Array(16), new Uint8Array(64), new Uint8Array(16)], // AES decrypt 64 bytes
+    [new Uint8Array(16), new Uint8Array(16)], // binary addition of 16B numbers
+    [new Uint8Array(16), new Uint8Array(16)], // binary mult. of 16B numbers
+    [new Uint8Array(16), new Uint8Array(16)], // equality check
+    [new Uint8Array(16), new Uint8Array(64), new Uint8Array(16)], // concatenation
+    [new Uint8Array(32), new Uint8Array(64), new Uint8Array(8)], // sha256 compression + padding
+];
 
 let buyer: HardhatEthersSigner;
 let vendor: HardhatEthersSigner;
@@ -145,20 +167,19 @@ describe("DisputeSOX", function () {
             // vendor submits its commitment and the proofs
             const gateNum = await contract.a();
 
-            const {
-                gate,
-                values,
-                curr_acc,
-                proof1,
-                proof2,
-                proof3,
-                proof_ext,
-            } = compute_proofs(
-                circuit_bytes,
-                evaluated_bytes,
-                ct,
-                Number(gateNum)
-            );
+            let { gate, values, curr_acc, proof1, proof2, proof3, proof_ext } =
+                compute_proofs(
+                    circuit_bytes,
+                    evaluated_bytes,
+                    ct,
+                    Number(gateNum)
+                );
+
+            // Uncomment and set opcode to force contract to evaluate a specific operation
+            // const opcode = 0;
+            // gate = SAMPLE_GATES[opcode];
+            // values = SAMPLE_VALUES[opcode];
+            // console.log(`${opcode}: `);
 
             await contract
                 .connect(vendor)

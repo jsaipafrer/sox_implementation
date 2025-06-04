@@ -22,7 +22,7 @@ library CircuitEvaluator {
                 Instruction(decryptBlock),
                 Instruction(binAdd),
                 Instruction(binMult),
-                Instruction(binEquals),
+                Instruction(equal),
                 Instruction(concat),
                 Instruction(sha256FinalCompressionInstruction)
             ]
@@ -56,11 +56,6 @@ library CircuitEvaluator {
         return SHA256Evaluator.sha256CompressionInstruction(_data);
     }
 
-    // Internal wrapper for SimpleOperationsEvaluator.dummy
-    function dummy(bytes[] memory _data) internal pure returns (bytes memory) {
-        return SimpleOperationsEvaluator.dummy(_data);
-    }
-
     // Internal wrapper for SimpleOperationsEvaluator.binAdd
     function binAdd(bytes[] memory _data) internal pure returns (bytes memory) {
         return SimpleOperationsEvaluator.binAdd(_data);
@@ -73,11 +68,9 @@ library CircuitEvaluator {
         return SimpleOperationsEvaluator.binMult(_data);
     }
 
-    // Internal wrapper for SimpleOperationsEvaluator.binEquals
-    function binEquals(
-        bytes[] memory _data
-    ) internal pure returns (bytes memory) {
-        return SimpleOperationsEvaluator.binEquals(_data);
+    // Internal wrapper for SimpleOperationsEvaluator.equal
+    function equal(bytes[] memory _data) internal pure returns (bytes memory) {
+        return SimpleOperationsEvaluator.equal(_data);
     }
 
     // Internal wrapper for SimpleOperationsEvaluator.concat

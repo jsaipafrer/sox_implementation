@@ -89,7 +89,7 @@ async function time_buyer_check_precontract(
 }
 
 async function time_buyer_check_received_ct_key(key: string, desc_v: string) {
-    console.log("Buyer checks before dispute trigger and argument making");
+    console.log("Buyer checks before dispute trigger");
 
     const ct = readFileSync(`${TMP_DIR}/ct_v.enc`);
 
@@ -114,7 +114,7 @@ async function time_buyer_check_received_ct_key(key: string, desc_v: string) {
 }
 
 async function time_bv_make_argument(desc: string, opening_value: string) {
-    console.log("Buyer checks before dispute trigger and argument making");
+    console.log("Buyer makes argument");
 
     const ct = readFileSync(`${TMP_DIR}/ct_v.enc`);
 
@@ -315,14 +315,20 @@ async function main() {
     buyer_time += time;
     vendor_time += time;
 
-    const { time: time_hpre } = await time_bv_compute_hpre(
-        precontract.num_blocks,
-        precontract.num_blocks + 2
-    );
-    // hpre must be computes log(num_gates) times
-    const log_gates = Math.floor(Math.log2(precontract.num_gates));
-    buyer_time += log_gates * time_hpre;
-    vendor_time += log_gates * time_hpre;
+    let a = precontract.num_blocks + 1;
+    let b = precontract.num_gates + 1;
+    let chall;
+    while (a != b) {
+        chall = Math.floor((a + b) / 2);
+        const { time: time_hpre } = await time_bv_compute_hpre(
+            precontract.num_blocks,
+            chall
+        );
+        buyer_time += time_hpre;
+        vendor_time += time_hpre;
+
+        a = chall + 1;
+    }
 
     const components_8a = await time_vendor_computes_proofs_8a(
         precontract.num_blocks + 3
@@ -337,6 +343,11 @@ async function main() {
         precontract.num_gates
     );
     vendor_time += max(components_8a.time, components_8b.time, proof_8c.time);
+    console.log(
+        "==================== DISPUTE-ONLY RUNNING TIME ==============="
+    );
+    console.log(`Buyer: ${buyer_time - opt_buyer_time} ms`);
+    console.log(`Vendor: ${vendor_time - opt_vendor_time} ms`);
 
     console.log("==================== WORST CASE RUNNING TIME ===============");
     console.log(`Buyer: ${buyer_time} ms`);
