@@ -27,8 +27,35 @@ export async function deployRealContracts(
     const accumulatorVerifier = await AccumulatorVerifierFactory.deploy();
     await accumulatorVerifier.waitForDeployment();
 
+    const SHA256EvaluatorFactory = await ethers.getContractFactory(
+        "SHA256Evaluator"
+    );
+    const sha256Evaluator = await SHA256EvaluatorFactory.deploy();
+    await sha256Evaluator.waitForDeployment();
+
+    const SimpleOperationsEvaluatorFactory = await ethers.getContractFactory(
+        "SimpleOperationsEvaluator"
+    );
+    const simpleOperationsEvaluator =
+        await SimpleOperationsEvaluatorFactory.deploy();
+    await simpleOperationsEvaluator.waitForDeployment();
+
+    const AES128CtrEvaluatorFactory = await ethers.getContractFactory(
+        "AES128CtrEvaluator"
+    );
+    const aes128CtrEvaluator = await AES128CtrEvaluatorFactory.deploy();
+    await aes128CtrEvaluator.waitForDeployment();
+
     const CircuitEvaluatorFactory = await ethers.getContractFactory(
-        "CircuitEvaluator"
+        "CircuitEvaluator",
+        {
+            libraries: {
+                SHA256Evaluator: await sha256Evaluator.getAddress(),
+                SimpleOperationsEvaluator:
+                    await simpleOperationsEvaluator.getAddress(),
+                AES128CtrEvaluator: await aes128CtrEvaluator.getAddress(),
+            },
+        }
     );
     const circuitEvaluator = await CircuitEvaluatorFactory.deploy();
     await circuitEvaluator.waitForDeployment();
@@ -129,8 +156,35 @@ export async function deployDisputeWithMockOptimistic(
     const accumulatorVerifier = await AccumulatorVerifierFactory.deploy();
     await accumulatorVerifier.waitForDeployment();
 
+    const SHA256EvaluatorFactory = await ethers.getContractFactory(
+        "SHA256Evaluator"
+    );
+    const sha256Evaluator = await SHA256EvaluatorFactory.deploy();
+    await sha256Evaluator.waitForDeployment();
+
+    const SimpleOperationsEvaluatorFactory = await ethers.getContractFactory(
+        "SimpleOperationsEvaluator"
+    );
+    const simpleOperationsEvaluator =
+        await SimpleOperationsEvaluatorFactory.deploy();
+    await simpleOperationsEvaluator.waitForDeployment();
+
+    const AES128CtrEvaluatorFactory = await ethers.getContractFactory(
+        "AES128CtrEvaluator"
+    );
+    const aes128CtrEvaluator = await AES128CtrEvaluatorFactory.deploy();
+    await aes128CtrEvaluator.waitForDeployment();
+
     const CircuitEvaluatorFactory = await ethers.getContractFactory(
-        "CircuitEvaluator"
+        "CircuitEvaluator",
+        {
+            libraries: {
+                SHA256Evaluator: await sha256Evaluator.getAddress(),
+                SimpleOperationsEvaluator:
+                    await simpleOperationsEvaluator.getAddress(),
+                AES128CtrEvaluator: await aes128CtrEvaluator.getAddress(),
+            },
+        }
     );
     const circuitEvaluator = await CircuitEvaluatorFactory.deploy();
     await circuitEvaluator.waitForDeployment();
