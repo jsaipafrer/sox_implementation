@@ -1,8 +1,6 @@
 import hre from "hardhat";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { readFile } from "node:fs/promises";
-import { bytes_to_hex, initSync } from "../../app/lib/circuits/wasm/circuits";
 
 const { ethers } = hre;
 

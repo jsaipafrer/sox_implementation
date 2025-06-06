@@ -6,15 +6,13 @@ mod commitment;
 mod accumulator;
 
 use std::cmp::min;
-use alloy_sol_types::private::bytes;
 use wasm_bindgen::prelude::*;
 use js_sys::{Array, Uint8Array, BigInt};
 use serde::{Deserialize, Serialize};
 use rmp_serde::{encode::write, decode::from_read};
-use alloy_sol_types::SolValue;
 use rand::RngCore;
 use crate::accumulator::{acc_circuit, acc_ct, acc, prove_ext, prove, proof_to_js_array};
-use crate::commitment::{commit_internal, hex_to_bytes, bytes_to_hex, open_commitment_internal, commit_hashes, Commitment};
+use crate::commitment::{hex_to_bytes, bytes_to_hex, open_commitment_internal, commit_hashes, Commitment};
 use crate::encryption::{decrypt, encrypt_and_prepend_iv};
 use crate::sha256::sha256;
 

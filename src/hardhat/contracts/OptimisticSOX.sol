@@ -141,12 +141,6 @@ contract OptimisticSOX is IOptimisticSOX {
     function registerBuyerDisputeSponsor(
         address _sb
     ) public payable onlyExpected(buyer, OptimisticState.WaitSB) {
-        require(
-            msg.value >= disputeTip,
-            "Agreed dispute tip is higher than deposit"
-        );
-
-        sbTip = msg.value;
         buyerDisputeSponsor = _sb;
 
         nextState(OptimisticState.WaitSBFee);
@@ -158,23 +152,18 @@ contract OptimisticSOX is IOptimisticSOX {
         onlyExpected(buyerDisputeSponsor, OptimisticState.WaitSBFee)
     {
         require(
-            msg.value >= DISPUTE_FEES,
-            "Not enough money deposited to cover dispute fees"
+            msg.value >= DISPUTE_FEES + disputeTip,
+            "Not enough money deposited to cover dispute fees + tip"
         );
 
         sbDeposit = msg.value;
+        sbTip = msg.value - DISPUTE_FEES;
         nextState(OptimisticState.WaitSV);
     }
 
     function registerVendorDisputeSponsor(
         address _sv
     ) public payable onlyExpected(vendor, OptimisticState.WaitSV) {
-        require(
-            msg.value >= disputeTip,
-            "Agreed dispute tip is higher than deposit"
-        );
-
-        svTip = msg.value;
         vendorDisputeSponsor = _sv;
 
         nextState(OptimisticState.WaitSVFee);
@@ -186,11 +175,12 @@ contract OptimisticSOX is IOptimisticSOX {
         onlyExpected(vendorDisputeSponsor, OptimisticState.WaitSVFee)
     {
         require(
-            msg.value >= DISPUTE_FEES,
-            "Not enough money deposited to cover dispute fees"
+            msg.value >= DISPUTE_FEES + disputeTip,
+            "Not enough money deposited to cover dispute fees + tip"
         );
 
         svDeposit = msg.value;
+        svTip = msg.value - DISPUTE_FEES;
 
         nextState(OptimisticState.WaitDisputeStart);
     }

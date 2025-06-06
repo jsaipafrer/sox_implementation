@@ -144,26 +144,22 @@ describe("End-to-end", function () {
             // buyer registers its dispute sponsor
             await optimisticContract
                 .connect(buyer)
-                .registerBuyerDisputeSponsor(buyerDisputeSponsor, {
-                    value: disputeTip,
-                });
+                .registerBuyerDisputeSponsor(buyerDisputeSponsor);
 
             // sb deposits dispute fees
             await optimisticContract
                 .connect(buyerDisputeSponsor)
-                .sendBuyerDisputeSponsorFee({ value: 10n });
+                .sendBuyerDisputeSponsorFee({ value: 10n + disputeTip });
 
             // vendor registers its dispute sponsor
             await optimisticContract
                 .connect(vendor)
-                .registerVendorDisputeSponsor(vendorDisputeSponsor, {
-                    value: disputeTip,
-                });
+                .registerVendorDisputeSponsor(vendorDisputeSponsor);
 
             // sv deposits dispute fees
             await optimisticContract
                 .connect(vendorDisputeSponsor)
-                .sendVendorDisputeSponsorFee({ value: 10n });
+                .sendVendorDisputeSponsorFee({ value: 10n + disputeTip });
 
             // sb starts the dispute
             await optimisticContract
