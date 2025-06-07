@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL 3.0
 pragma solidity ^0.8.0;
 
+import "hardhat/console.sol";
+
 library AccumulatorVerifier {
     function getNeighbor(uint256 index) internal pure returns (uint256) {
         if (index % 2 == 0) return index + 1;
@@ -17,6 +19,13 @@ library AccumulatorVerifier {
         bytes32[] memory valuesKeccak,
         bytes32[][] memory proof
     ) public pure returns (bool) {
+        // console.log("---------------");
+        // console.logBytes32(root);
+        // console.log("[%d, %d]", indices[0], indices[1]);
+        // console.logBytes32(valuesKeccak[0]);
+        // console.logBytes32(valuesKeccak[1]);
+        // console.logBytes32(proof[0][0]);
+
         // From https://arxiv.org/pdf/2002.07648, slighlty modified
         // by taking the proof in reverse order to use pop() instead of
         // dealing with the removal of the first element of the proof
@@ -34,18 +43,25 @@ library AccumulatorVerifier {
                 if (neighborIdx < currIdx) b[i] = [neighborIdx, currIdx];
                 else b[i] = [currIdx, neighborIdx];
 
-                if (i < indices.length - 1 && neighborIdx == indices[i + 1]) {
+                if (i == 0 || b[i][0] != b[i - 1][0]) {
                     bPrunedLength++;
                 }
             }
 
+            // console.log(bPrunedLength);
+
             uint256[] memory nextIndices = new uint256[](bPrunedLength);
             bytes32[] memory nextValues = new bytes32[](bPrunedLength);
-            uint256 nextElement = proof[l].length - 1;
+            // proofs were initially reversed to use .pop() but it only works on storage
+            // which uses more gas
+            // we also take the +1 to avoid conversions between uint and int
+            uint256 nextElementPlusOne = proof[l].length;
             uint256 indicesI = 0;
             uint256 valuesI = 0;
             for (uint256 i = 0; i < b.length; i++) {
                 if (i + 1 < b.length && b[i][0] == b[i + 1][0]) {
+                    // console.log("aaa");
+
                     // duplicate found
                     // this means that b[i][0] and b[i][1] are elements of
                     // nextIndices. Furthermore, b[i] is computed based on
@@ -60,27 +76,40 @@ library AccumulatorVerifier {
                     valuesI++;
 
                     i++; // skip next element (duplicate)
-                } else if (nextElement >= 0) {
+                } else if (nextElementPlusOne > 0) {
+                    // console.log("bbb");
+
                     // index needed to hash elements in the correct order
                     uint256 correspondingIdx = indices[i];
                     uint256 neighborIdx = getNeighbor(correspondingIdx);
 
                     if (neighborIdx < correspondingIdx) {
+                        // console.log("hhh1");
+
                         nextValues[valuesI] = hash(
-                            proof[l][nextElement],
+                            proof[l][nextElementPlusOne - 1],
                             valuesKeccak[i]
                         );
                         valuesI++;
-                        nextElement--;
+                        nextElementPlusOne--;
                     } else {
+                        // console.log(nextValues.length);
+                        // console.log(valuesI);
+
                         nextValues[valuesI] = hash(
                             valuesKeccak[i],
-                            proof[l][nextElement]
+                            proof[l][nextElementPlusOne - 1]
                         );
                         valuesI++;
-                        nextElement--;
+                        nextElementPlusOne--;
                     }
                 } else {
+                    // console.log("ccc");
+                    // console.log(nextValues.length);
+                    // console.log(valuesI);
+                    // console.log(valuesKeccak.length);
+                    // console.log(i);
+
                     // proof layer is empty, move the element that must be combined to the next layer
                     nextValues[valuesI] = valuesKeccak[i];
                     valuesI++;
@@ -88,11 +117,17 @@ library AccumulatorVerifier {
 
                 nextIndices[indicesI] = (indices[i] >> 1);
                 indicesI++;
+                // console.log(
+                //     "================ worked for i=%d =================",
+                //     i
+                // );
             }
-
             valuesKeccak = nextValues;
             indices = nextIndices;
+            // console.log("done with layer %d", l);
         }
+
+        // console.logBytes32(valuesKeccak[0]);
 
         require(
             valuesKeccak.length == 1,
@@ -108,17 +143,20 @@ library AccumulatorVerifier {
         bool firstFound = false;
         bytes32 computedRoot;
         for (uint256 i = 0; i < proof.length; i++) {
-            uint256 nextElement = proof[i].length;
-            while (nextElement >= 0) {
+            uint256 nextElementPlusOne = proof[i].length;
+            while (nextElementPlusOne > 0) {
                 if (!firstFound) {
-                    computedRoot = proof[i][nextElement];
-                    nextElement--;
+                    computedRoot = proof[i][nextElementPlusOne - 1];
+                    nextElementPlusOne--;
                     firstFound = true;
                 } else {
                     computedRoot = keccak256(
-                        bytes.concat(proof[i][nextElement], computedRoot)
+                        bytes.concat(
+                            proof[i][nextElementPlusOne - 1],
+                            computedRoot
+                        )
                     );
-                    nextElement--;
+                    nextElementPlusOne--;
                 }
             }
         }

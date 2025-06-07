@@ -21,7 +21,7 @@ const TMP_DIR = "./tmp";
 const BLOCK_SIZE = 64;
 
 async function time_vendor_compute_precontract_values() {
-    let numBlocks = 1 << 21;
+    let numBlocks = 1 << 16;
 
     let key = new Uint8Array(16);
     let file: Uint8Array | undefined = new Uint8Array(numBlocks * BLOCK_SIZE);

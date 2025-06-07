@@ -217,18 +217,13 @@ fn verify_previous(prev_root: &Vec<u8>, proof: &Vec<Vec<Vec<u8>>>) -> bool {
 }
 
 fn concat_and_hash(left: &Vec<u8>, right: &Vec<u8>) -> Vec<u8> {
-    let concat = [to_bytes32(left).to_vec(), to_bytes32(right).to_vec()].concat();
+    let concat = [left.to_vec(), right.to_vec()].concat();
     hash(&concat)
 }
 
 fn hash(data: &Vec<u8>) -> Vec<u8> {
     let mut hasher = Keccak256::new();
-    let hashee = if data.len() < 32 {
-        &to_bytes32(data)
-    } else {
-        data
-    };
-    hasher.update(&hashee);
+    hasher.update(&data);
 
     hasher.finalize().to_vec()
 }
@@ -241,57 +236,122 @@ pub fn proof_to_js_array(proof: Vec<Vec<Vec<u8>>>) -> Array {
             .map(|v| Uint8Array::from(v.as_slice())))))
 }
 
-// =================================================================================================
-
-#[test]
-pub fn test_accumulator() {
-    let mut rng = rand::rng();
-    for i in 1..1000usize {
-        let values: Vec<Vec<u8>> = (0..i)
-            .map(|_| (0..1)
-                .map(|_| rng.random_range(0..=255))
-                .collect())
-            .collect();
-
-
-        let h = acc(&values);
-
-        // Generate a Vec<usize> `indices` with a random number of indices
-        let num_indices = rng.random_range(1..=i);
-        // let num_indices = 3;
-        let mut indices: Vec<usize> = (0..i).collect();
-        indices.shuffle(&mut rng);
-        indices.truncate(num_indices);
-        indices.sort(); // Ensure indices are strictly increasing
-
-        // Get the values at the indices of the vector `indices`
-        let proof_values: Vec<Vec<u8>> = indices
-            .iter()
-            .map(|&idx| values[idx].clone())
-            .collect();
-
-        // Call `prove(&proof_values, &indices)` and store in `proof`
-        let proof = prove(&values, &indices);
-
-        // Call `verify(&h, &indices, &proof_values, &proof)` and assert that it should be true
-        assert!(verify(&h, &indices, &proof_values, &proof), "Verification failed for i = {}", 1);
-    }
+#[wasm_bindgen]
+pub fn acc_js(values: Vec<Uint8Array>) -> Vec<u8> {
+    let values_vec: Vec<Vec<u8>> = values.iter().map(uint8_array_to_vec_u8).collect();
+    acc(&values_vec)
 }
 
-#[test]
-pub fn test_incr_accumulator() {
-    let mut rng = rand::rng();
-    for i in 2..1000usize {
-        let values: Vec<Vec<u8>> = (0..i)
+#[wasm_bindgen]
+pub fn prove_js(values: Vec<Uint8Array>, indices: Array) -> Array {
+    let values_vec: Vec<Vec<u8>> = values.iter().map(uint8_array_to_vec_u8).collect();
+    let indices_usize = indices.iter().map(|i| i.as_f64().unwrap() as usize).collect::<Vec<usize>>();
+    let proof = prove(&values_vec, &indices_usize);
+    proof_to_js_array(proof)
+}
+
+#[wasm_bindgen]
+pub fn prove_ext_js(values: Vec<Uint8Array>) -> Array {
+    let values_vec: Vec<Vec<u8>> = values.iter().map(uint8_array_to_vec_u8).collect();
+    let proof = prove_ext(&values_vec);
+    proof_to_js_array(proof)
+}
+
+fn vec_u8_to_uint8_array(v: &Vec<u8>) -> Uint8Array {
+    Uint8Array::from(v.as_slice())
+}
+
+fn uint8_array_to_vec_u8(arr: &Uint8Array) -> Vec<u8> {
+    (0..arr.length())
+        .map(|i| arr.get_index(i))
+        .collect()
+}
+
+// =================================================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn test_acc_simple_root() {
+        //          root
+        //          /  \
+        //         l1  l2
+        //          |   |
+        //       0xdead 0xbeef
+        let values = vec![vec![0xde, 0xad], vec![0xbe, 0xef]];
+        let expected_root = concat_and_hash(&hash(&values[0]), &hash(&values[1]));
+
+        let root = acc(&values);
+        assert_eq!(expected_root, root);
+    }
+
+    #[test]
+    pub fn some_test() {
+        let values = vec![vec![0xde, 0xad, 0xbe, 0xef], vec![0xc0, 0xff, 0xee]];
+    }
+
+    #[test]
+    pub fn test_proof_simple_tree() {
+        let values = vec![vec![0xde, 0xad], vec![0xbe, 0xef]];
+        let indices = vec![0];
+        let expected_proof = vec![vec![hash(&values[1])]];
+
+        let proof = prove(&values, &indices);
+        assert_eq!(expected_proof, proof);
+    }
+
+    #[test]
+    pub fn test_accumulator() {
+        let mut rng = rand::rng();
+        for i in 1..1000usize {
+            let values: Vec<Vec<u8>> = random_values(i);
+
+            let h = acc(&values);
+
+            // generate random number of indices
+            let num_indices = rng.random_range(1..=i);
+            // let num_indices = 3;
+            let mut indices: Vec<usize> = (0..i).collect();
+            indices.shuffle(&mut rng);
+            indices.truncate(num_indices);
+            indices.sort(); // ensure indices are increasing
+
+            // Get the values at the indices of the vector `indices`
+            let proof_values: Vec<Vec<u8>> = indices
+                .iter()
+                .map(|&idx| values[idx].clone())
+                .collect();
+
+            // Call `prove(&proof_values, &indices)` and store in `proof`
+            let proof = prove(&values, &indices);
+
+            // Call `verify(&h, &indices, &proof_values, &proof)` and assert that it should be true
+            assert!(verify(&h, &indices, &proof_values, &proof), "Verification failed for i = {}", 1);
+        }
+    }
+
+    #[test]
+    pub fn test_incr_accumulator() {
+        for i in 2..1000usize {
+            let values: Vec<Vec<u8>> = random_values(i);
+
+            let prev_h = acc(&values[..i - 1]);
+            let curr_h = acc(&values);
+            let proof = prove_ext(&values);
+
+            assert!(verify_ext(i-1, &prev_h, &curr_h, values.last().unwrap(), &proof), "Verification failed for i = {}", i);
+        }
+    }
+
+    fn random_values(num_bytes: usize) -> Vec<Vec<u8>> {
+        let mut rng = rand::rng();
+
+        (0..num_bytes)
             .map(|_| (0..1)
                 .map(|_| rng.random_range(0..=255))
                 .collect())
-            .collect();
-
-        let prev_h = acc(&values[..i-1]);
-        let curr_h = acc(&values);
-        let proof = prove_ext(&values);
-
-        assert!(verify_ext(i-1, &prev_h, &curr_h, values.last().unwrap(), &proof), "Verification failed for i = {}", i);
+            .collect()
     }
 }

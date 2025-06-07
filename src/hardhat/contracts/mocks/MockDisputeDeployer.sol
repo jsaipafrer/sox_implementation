@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IOptimisticSOX} from "./OptimisticSOX.sol";
+import {IOptimisticSOX} from "../OptimisticSOX.sol";
 
 contract MockDisputeDeployer {
     function deployDispute(

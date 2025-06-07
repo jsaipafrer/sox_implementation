@@ -8,9 +8,11 @@ async function main() {
 
     let addresses = new Map();
     for (const lName of [
+        "SHA256Evaluator",
+        "SimpleOperationsEvaluator",
+        "AES128CtrEvaluator",
         "AccumulatorVerifier",
-        "CommitmentVerifier",
-        "CircuitEvaluator",
+        "CommitmentOpener",
     ]) {
         let factory = await ethers.getContractFactory(lName);
         let lib = await factory.connect(deployer).deploy();
@@ -18,17 +20,41 @@ async function main() {
         addresses.set(lName, await lib.getAddress());
     }
 
+    // circuit evaluator depends on some of the others
+    const CircuitEvaluatorFactory = await ethers.getContractFactory(
+        "CircuitEvaluator",
+        {
+            libraries: {
+                SHA256Evaluator: await addresses.get("SHA256Evaluator"),
+                SimpleOperationsEvaluator: await addresses.get(
+                    "SimpleOperationsEvaluator"
+                ),
+                AES128CtrEvaluator: await addresses.get("AES128CtrEvaluator"),
+            },
+        }
+    );
+    const circuitEvaluator = await CircuitEvaluatorFactory.connect(
+        deployer
+    ).deploy();
+    await circuitEvaluator.waitForDeployment();
+    addresses.set("CircuitEvaluator", await circuitEvaluator.getAddress());
+
     // dispute deployer depends on the others
-    let factory = await ethers.getContractFactory("DisputeDeployer", {
-        libraries: {
-            AccumulatorVerifier: addresses.get("AccumulatorVerifier"),
-            CommitmentVerifier: addresses.get("CommitmentVerifier"),
-            CircuitEvaluator: addresses.get("CircuitEvaluator"),
-        },
-    });
-    let lib = await factory.connect(deployer).deploy();
-    await lib.waitForDeployment();
-    addresses.set("DisputeDeployer", await lib.getAddress());
+    const DisputeDeployerFactory = await ethers.getContractFactory(
+        "DisputeDeployer",
+        {
+            libraries: {
+                AccumulatorVerifier: await addresses.get("AccumulatorVerifier"),
+                CommitmentOpener: await addresses.get("CommitmentOpener"),
+                CircuitEvaluator: await addresses.get("CircuitEvaluator"),
+            },
+        }
+    );
+    let disputeDeployer = await DisputeDeployerFactory.connect(
+        deployer
+    ).deploy();
+    await disputeDeployer.waitForDeployment();
+    addresses.set("DisputeDeployer", await disputeDeployer.getAddress());
 
     // link libraries to contracts
     const optimisticFac = await ethers.getContractFactory("OptimisticSOX", {
@@ -49,7 +75,7 @@ async function main() {
     const disputeFac = await ethers.getContractFactory("DisputeSOX", {
         libraries: {
             AccumulatorVerifier: addresses.get("AccumulatorVerifier"),
-            CommitmentVerifier: addresses.get("CommitmentVerifier"),
+            CommitmentOpener: addresses.get("CommitmentOpener"),
             CircuitEvaluator: addresses.get("CircuitEvaluator"),
         },
     });

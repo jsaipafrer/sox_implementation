@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {AES128CtrEvaluator} from "./AES128CtrEvaluator.sol";
+import {AES128CtrEvaluator} from "../AES128CtrEvaluator.sol";
 
-contract AES128CtrTest {
+contract TestAES128Ctr {
     function encrypt(
         bytes16 plaintext,
         bytes16 key
