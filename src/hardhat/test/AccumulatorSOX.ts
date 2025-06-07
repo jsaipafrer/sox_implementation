@@ -5,12 +5,9 @@ import {
     initSync,
     acc_js,
     prove_js,
-    bytes_to_hex,
     prove_ext_js,
 } from "../../app/lib/circuits/wasm/circuits";
 import { readFile } from "node:fs/promises";
-
-const coder = ethers.AbiCoder.defaultAbiCoder();
 
 function generateRandomBytes(n: number): Uint8Array {
     if (n <= 0) {
@@ -100,9 +97,7 @@ describe("AccumulatorVerifier", () => {
         it("returns true for a simple valid Merkle proof", async () => {
             const l1 = ethers.keccak256("0xdead");
             const l2 = ethers.keccak256("0xbeef");
-            const root = ethers.keccak256(
-                coder.encode(["bytes32", "bytes32"], [l1, l2])
-            );
+            const root = ethers.keccak256(ethers.concat([l1, l2]));
 
             const indices = [0];
             const values = [l1];

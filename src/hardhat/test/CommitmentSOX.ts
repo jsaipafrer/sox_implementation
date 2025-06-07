@@ -1,115 +1,96 @@
 import { expect } from "chai";
-import hre from "hardhat";
-import "@nomicfoundation/hardhat-chai-matchers";
-import { CommitmentVerifier } from "../typechain-types";
-import { commit, openCommitment } from "../../app/lib/commitment";
+import { ethers } from "hardhat";
+import { TestCommitmentOpener } from "../typechain-types";
+import { initSync, commit } from "../../app/lib/circuits/wasm/circuits";
+import { readFile } from "node:fs/promises";
 
-const { ethers } = hre;
+function generateRandomBytes(n: number): Uint8Array {
+    if (n <= 0) {
+        throw new Error("Length must be a positive integer.");
+    }
+    const randomBytes = new Uint8Array(n);
 
-function randInt(a: number, b: number): number {
-    return a + Math.floor(Math.random() * (b - a));
-}
-
-describe("Commitments", function () {
-    let commitmentVerifier: CommitmentVerifier;
-
-    async function deployContractCorrect() {
-        const CommitmentVerifier = await ethers.getContractFactory(
-            "CommitmentVerifier"
-        );
-        commitmentVerifier = await CommitmentVerifier.deploy();
-        await commitmentVerifier.waitForDeployment();
+    for (let i = 0; i < n; i++) {
+        // Generate a random byte value between 0 and 255
+        randomBytes[i] = Math.floor(Math.random() * 256);
     }
 
-    before(async function () {
-        await deployContractCorrect();
+    return randomBytes;
+}
+
+before(async () => {
+    const module = await readFile(
+        "../../app/lib/circuits/wasm/circuits_bg.wasm"
+    );
+    initSync({ module: module });
+});
+
+describe("TestCommitmentOpener with linked CommitmentOpener library", function () {
+    let testContract: TestCommitmentOpener;
+
+    beforeEach(async () => {
+        // Deploy the library first
+        const LibFactory = await ethers.getContractFactory("CommitmentOpener");
+        const lib = await LibFactory.deploy();
+        await lib.waitForDeployment();
+
+        // Link the library when deploying the contract
+        const ContractFactory = await ethers.getContractFactory(
+            "TestCommitmentOpener",
+            {
+                libraries: {
+                    CommitmentOpener: await lib.getAddress(),
+                },
+            }
+        );
+
+        testContract = await ContractFactory.deploy();
+        await testContract.waitForDeployment();
     });
 
-    it("Should create commitments that match the client's", async () => {
-        for (let i = 0; i < 100; ++i) {
-            const data = ethers.randomBytes(randInt(0, 1023));
-            const key = ethers.randomBytes(randInt(0, 1023));
+    it("should return the correct opening value prefix if commitment matches", async () => {
+        const data = ethers.toUtf8Bytes("secret-data-1234567890123456"); // 16-byte suffix
+        const commitment = ethers.keccak256(data);
 
-            const clientCommitment = commit(data, key);
-            const contractCommitment = await commitmentVerifier.commit(
-                data,
-                key
-            );
+        const result = await testContract.open(commitment, data);
+        const expected =
+            "0x" + Buffer.from(data.slice(0, data.length - 16)).toString("hex");
 
-            expect(contractCommitment).to.be.equal(
-                ethers.hexlify(clientCommitment)
-            );
-        }
+        expect(result).to.equal(expected);
     });
 
-    it("Should verify its own commitments", async () => {
-        for (let i = 0; i < 100; ++i) {
-            const data = ethers.randomBytes(randInt(0, 1023));
-            const key = ethers.randomBytes(randInt(0, 1023));
+    it("should revert if the commitment does not match", async () => {
+        const correctData = ethers.toUtf8Bytes("correct-data-1234567890123456");
+        const wrongData = ethers.toUtf8Bytes("wrong-data-1234567890123456");
+        const commitment = ethers.keccak256(correctData);
 
-            const commitment = await commitmentVerifier.commit(data, key);
-
-            await expect(
-                commitmentVerifier.open(ethers.getBytes(commitment), [
-                    data,
-                    key,
-                ])
-            ).to.not.be.reverted;
-        }
+        await expect(
+            testContract.open(commitment, wrongData)
+        ).to.be.revertedWith("Commitment and opening value do not match");
     });
 
-    it("Should return the same opening value when the commitment is verified", async () => {
-        for (let i = 0; i < 100; ++i) {
-            const data = ethers.randomBytes(randInt(0, 1023));
-            const key = ethers.randomBytes(randInt(0, 1023));
+    it("should return empty if opening value is exactly 16 bytes", async () => {
+        const data = ethers.toUtf8Bytes("1234567890abcdef"); // exactly 16 bytes
+        const commitment = ethers.keccak256(data);
 
-            const commitment = await commitmentVerifier.commit(data, key);
-            const openingValue = await commitmentVerifier.open(
-                ethers.getBytes(commitment),
-                [data, key]
-            );
-
-            expect(openingValue[0]).to.be.equal(ethers.hexlify(data));
-            expect(openingValue[1]).to.be.equal(ethers.hexlify(key));
-        }
+        const result = await testContract.open(commitment, data);
+        expect(result).to.equal("0x");
     });
 
-    it("Should verify the client's commitments", async () => {
-        for (let i = 0; i < 100; ++i) {
-            const data = ethers.randomBytes(randInt(0, 1023));
-            const key = ethers.randomBytes(randInt(0, 1023));
+    it("should revert if opening value is shorter than 16 bytes", async () => {
+        const data = ethers.toUtf8Bytes("short-value"); // < 16 bytes
+        const commitment = ethers.keccak256(data);
 
-            const clientCommitment = commit(data, key);
-
-            await expect(
-                commitmentVerifier.open(ethers.getBytes(clientCommitment), [
-                    data,
-                    key,
-                ])
-            ).not.to.be.reverted;
-        }
+        await expect(testContract.open(commitment, data)).to.be.reverted;
     });
 
-    it("Should produce commitments that the client can verify", async () => {
-        for (let i = 0; i < 100; ++i) {
-            const data = ethers.randomBytes(randInt(0, 1023));
-            const key = ethers.randomBytes(randInt(0, 1023));
+    it("should return the correct opening value when commitment is generated by the wasm library on random data", async () => {
+        const data = generateRandomBytes(512); // 512 bytes
+        const { c: commitment, o: openingValue } = commit(data);
 
-            const commitment = await commitmentVerifier.commit(data, key);
-            const openFct = () => {
-                openCommitment(ethers.getBytes(commitment), [data, key]);
-            };
+        const result = await testContract.open(commitment, openingValue);
+        const expected = "0x" + Buffer.from(data).toString("hex");
 
-            expect(openFct).to.not.throw();
-        }
-    });
-
-    it("Should revert when a bad commitment is supplied to its verify function", async () => {
-        for (let i = 0; i < 100; ++i) {
-            const data = ethers.randomBytes(randInt(0, 1023));
-            const key = ethers.randomBytes(randInt(0, 1023));
-
-            expect(commitmentVerifier.open(data, [data, key])).to.be.reverted;
-        }
+        expect(result).to.equal(expected);
     });
 });
