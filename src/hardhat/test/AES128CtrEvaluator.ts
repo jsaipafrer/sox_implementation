@@ -8,7 +8,12 @@ import {
     hex_to_bytes,
     initSync,
 } from "../../app/lib/circuits/wasm/circuits";
-import { randomBytes } from "node:crypto";
+import {
+    createCipheriv,
+    getCipherInfo,
+    getCiphers,
+    randomBytes,
+} from "node:crypto";
 import { TestAES128Ctr } from "../typechain-types";
 
 before(async () => {
@@ -46,6 +51,17 @@ describe("AES128 Library", function () {
         const result = await testAes128.encrypt(plaintext, key);
 
         expect(result).to.equal(expectedCiphertext);
+    });
+
+    it("AES implementation encrypts a random block in the same way as node's implementation", async () => {
+        const plaintext = randomBytes(16);
+        const key = randomBytes(16);
+
+        const cipher = createCipheriv("aes-128-ecb", key, null); // use ecb mode to encrypt only one block with "pure" AES
+        const expected = cipher.update(plaintext);
+
+        const result = await testAes128.encrypt(plaintext, key);
+        expect(result).to.equal(bytes_to_hex(expected));
     });
 
     it("AES implementation returns different ciphertext for different keys", async () => {

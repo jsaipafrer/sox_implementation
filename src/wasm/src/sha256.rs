@@ -1,8 +1,11 @@
+use js_sys::Uint8Array;
 use std::u64;
 use sha2::{Digest, Sha256};
 use sha2_compress::{Sha2, SHA256};
+use wasm_bindgen::prelude::wasm_bindgen;
+use crate::accumulator::uint8_array_to_vec_u8;
 
-pub fn js_u8_array_to_array_u32(vec: &[u8]) -> [u32; 8] {
+pub fn u8_array_to_u32_array(vec: &[u8]) -> [u32; 8] {
     if vec.len() != 32 {
         panic!("Input vector must have exactly 32 elements.");
     }
@@ -19,7 +22,7 @@ pub fn js_u8_array_to_array_u32(vec: &[u8]) -> [u32; 8] {
     res
 }
 
-pub fn array_u32_to_js_u8_array(array: &[u32; 8]) -> Vec<u8> {
+pub fn u32_array_to_u8_vec(array: &[u32; 8]) -> Vec<u8> {
     let mut res = Vec::with_capacity(32);
 
     for byte in array {
@@ -32,14 +35,16 @@ pub fn array_u32_to_js_u8_array(array: &[u32; 8]) -> Vec<u8> {
     res
 }
 pub fn sha256_compress(data: &Vec<&Vec<u8>>) -> Vec<u8> {
-    let prev_hash = if data.len() == 1 { SHA256 } else { js_u8_array_to_array_u32(data[0]) };
+    let prev_hash = if data.len() == 1 { SHA256 } else { u8_array_to_u32_array(data[0]) };
     let curr_block = if data.len() == 1 { data[0] } else { data[1] };
 
-    let h1 = js_u8_array_to_array_u32(&curr_block[..32]);
-    let h2 = js_u8_array_to_array_u32(&curr_block[32..]);
+    println!("prev_hash: {:?}", prev_hash);
+    println!("curr_block: {:?}", curr_block);
+    let h1 = u8_array_to_u32_array(&curr_block[..32]);
+    let h2 = u8_array_to_u32_array(&curr_block[32..]);
     let res = prev_hash.compress(&h1, &h2);
 
-    array_u32_to_js_u8_array(&res)
+    u32_array_to_u8_vec(&res)
 }
 
 fn sha256_padding(last_block: &Vec<u8>, data_len: u64) -> Vec<u8> {
@@ -66,7 +71,7 @@ fn sha256_padding(last_block: &Vec<u8>, data_len: u64) -> Vec<u8> {
     data_len
  */
 pub fn sha256_compress_final(data: &Vec<&Vec<u8>>) -> Vec<u8> {
-    let prev_hash = if data.len() == 2 { SHA256 } else { js_u8_array_to_array_u32(data[0]) };
+    let prev_hash = if data.len() == 2 { SHA256 } else { u8_array_to_u32_array(data[0]) };
     let curr_block = if data.len() == 2 { data[0] } else { data[1] };
     let data_len = if data.len() == 2 {
         u64::from_be_bytes(data[1].clone().try_into().unwrap())
@@ -75,22 +80,51 @@ pub fn sha256_compress_final(data: &Vec<&Vec<u8>>) -> Vec<u8> {
     };
 
     let padded = sha256_padding(&curr_block, data_len);
-    let h1 = js_u8_array_to_array_u32(&padded[..32]);
-    let h2 = js_u8_array_to_array_u32(&padded[32..64]);
+    let h1 = u8_array_to_u32_array(&padded[..32]);
+    let h2 = u8_array_to_u32_array(&padded[32..64]);
     let mut res = prev_hash.compress(&h1, &h2);
 
     if padded.len() > 64 {
         // an extra block left due to the padding
-        let h1 = js_u8_array_to_array_u32(&padded[64..96]);
-        let h2 = js_u8_array_to_array_u32(&padded[96..]);
+        let h1 = u8_array_to_u32_array(&padded[64..96]);
+        let h2 = u8_array_to_u32_array(&padded[96..]);
         res = res.compress(&h1, &h2);
     }
 
-    array_u32_to_js_u8_array(&res)
+    u32_array_to_u8_vec(&res)
 }
 
 pub fn sha256(data: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(data);
     hasher.finalize().to_vec()
+}
+
+#[wasm_bindgen]
+pub fn sha256_compress_final_js(data: Vec<Uint8Array>) -> Vec<u8> {
+    let values_vec: Vec<Vec<u8>> = data.iter().map(uint8_array_to_vec_u8).collect();
+    let refs: Vec<&Vec<u8>> = values_vec.iter().collect();
+    sha256_compress_final(&refs)
+}
+
+#[wasm_bindgen]
+pub fn sha256_compress_js(data: Vec<Uint8Array>) -> Vec<u8> {
+    let values_vec: Vec<Vec<u8>> = data.iter().map(uint8_array_to_vec_u8).collect();
+    let refs: Vec<&Vec<u8>> = values_vec.iter().collect();
+    sha256_compress(&refs)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::commitment::{bytes_to_hex, hex_to_bytes};
+    use super::*;
+
+    #[test]
+    pub fn bruh() {
+        let a = hex_to_bytes("0x870d5497ca7934fa6906ddfc6934d11934afa6be09aa2cc3e5f4faf730e63e023f9cef85f79eb61da95055b23538baacd8d1f38a638b712c0dae410ffd74612e".to_string());
+        let data = vec![&a];
+
+        let result = sha256_compress(&data);
+        println!("{}", bytes_to_hex(result));
+    }
 }

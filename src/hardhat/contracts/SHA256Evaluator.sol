@@ -80,7 +80,16 @@ library SHA256Evaluator {
 
             uint32[64] memory words = prepareMessageSchedule(_inputBlock);
 
-            uint32[8] memory state = _previousDigest;
+            // cloning _previousDigest
+            uint32[8] memory state;
+            state[0] = _previousDigest[0];
+            state[1] = _previousDigest[1];
+            state[2] = _previousDigest[2];
+            state[3] = _previousDigest[3];
+            state[4] = _previousDigest[4];
+            state[5] = _previousDigest[5];
+            state[6] = _previousDigest[6];
+            state[7] = _previousDigest[7];
 
             for (uint i = 0; i < 64; ++i) {
                 (
@@ -123,12 +132,11 @@ library SHA256Evaluator {
     ) internal pure returns (uint32[64] memory words) {
         unchecked {
             for (uint i = 0; i < 16; ++i) {
-                words[i] = uint32(
-                    (uint8(_inputBlock[i * 4]) << 24) |
-                        (uint8(_inputBlock[i * 4 + 1]) << 16) |
-                        (uint8(_inputBlock[i * 4 + 2]) << 8) |
-                        uint8(_inputBlock[i * 4 + 3])
-                );
+                words[i] =
+                    (uint32(uint8(_inputBlock[i * 4])) << 24) |
+                    (uint32(uint8(_inputBlock[i * 4 + 1])) << 16) |
+                    (uint32(uint8(_inputBlock[i * 4 + 2])) << 8) |
+                    uint32(uint8(_inputBlock[i * 4 + 3]));
             }
 
             for (uint i = 16; i < 64; ++i) {
@@ -220,8 +228,8 @@ library SHA256Evaluator {
 
         if (_data.length == 2) {
             require(
-                _data[0].length == 64,
-                "Block to hash must be 64 bytes long"
+                _data[0].length <= 64,
+                "Block to hash must be at most 64 bytes long"
             );
 
             require(
@@ -239,8 +247,8 @@ library SHA256Evaluator {
             );
 
             require(
-                _data[1].length == 64,
-                "Block to hash must be 64 bytes long"
+                _data[1].length <= 64,
+                "Block to hash must be at most 64 bytes long"
             );
 
             require(
@@ -317,7 +325,7 @@ library SHA256Evaluator {
         } else {
             bytes memory secondBlock = new bytes(64);
 
-            if (i == _lastBlock.length) {
+            if (i == 64) {
                 secondBlock[0] = 0x80;
             } else {
                 firstBlock[i] = 0x80;
