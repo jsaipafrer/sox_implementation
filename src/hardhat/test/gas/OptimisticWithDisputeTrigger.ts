@@ -1,7 +1,6 @@
 import hre from "hardhat";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { commit } from "../../../app/lib/commitment";
 import { deployRealContracts } from "../deployers";
 
 const { ethers } = hre;
@@ -95,34 +94,24 @@ describe("OptimisticSOX", function () {
             // buyer registers its dispute sponsor
             await contract
                 .connect(buyer)
-                .registerBuyerDisputeSponsor(buyerDisputeSponsor, {
-                    value: disputeTip,
-                });
+                .registerBuyerDisputeSponsor(buyerDisputeSponsor);
 
             // sb deposits dispute fees
             await contract
                 .connect(buyerDisputeSponsor)
-                .sendBuyerDisputeSponsorFee({ value: 10n });
+                .sendBuyerDisputeSponsorFee({ value: 10n + disputeTip });
 
             // vendor registers its dispute sponsor
             await contract
                 .connect(vendor)
-                .registerVendorDisputeSponsor(vendorDisputeSponsor, {
-                    value: disputeTip,
-                });
+                .registerVendorDisputeSponsor(vendorDisputeSponsor);
 
             // sv deposits dispute fees
             await contract
                 .connect(vendorDisputeSponsor)
-                .sendVendorDisputeSponsorFee({ value: 10n });
+                .sendVendorDisputeSponsorFee({ value: 10n + disputeTip });
 
             // sb starts the dispute
-            const numBlocks = 100n;
-            const numGates = 401n;
-            const commitment = commit(
-                ethers.toUtf8Bytes("commitment data"),
-                ethers.toUtf8Bytes("commitment key")
-            );
             await contract.connect(buyerDisputeSponsor).startDispute();
         }
     });

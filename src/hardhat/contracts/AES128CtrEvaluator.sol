@@ -185,8 +185,8 @@ library AES128CtrEvaluator {
         require(_data.length == 3, "Invalid _data array length");
         require(_data[0].length == 16, "Key must be 16 bytes long");
         require(
-            _data[1].length <= 112,
-            "Plaintext must be at most 112 bytes long"
+            _data[1].length <= 64,
+            "Plaintext must be at most 64 bytes long"
         );
         require(_data[2].length == 16, "Counter must be 16 bytes long");
 

@@ -91,7 +91,7 @@ describe("AES128 Library", function () {
             const key = randomBytes(16);
             const iv = randomBytes(16);
 
-            const length = Math.floor(Math.random() * 112) + 1;
+            const length = Math.floor(Math.random() * 64) + 1;
             const pt = randomBytes(length);
 
             const ct = await testAes128.encryptBlock([key, pt, iv]);
@@ -108,7 +108,7 @@ describe("AES128 Library", function () {
             const key = randomBytes(16);
             const iv = randomBytes(16);
 
-            const length = Math.floor(Math.random() * 112) + 1;
+            const length = Math.floor(Math.random() * 64) + 1;
             const pt = randomBytes(length);
 
             const ct = encrypt_block_js([key, pt, iv]);
@@ -128,8 +128,8 @@ describe("AES128 Library", function () {
         const tooLongKeyIv = new Uint8Array(17);
         const too$hortKeyIv = new Uint8Array(15);
 
-        const validPlaintext = new Uint8Array(112);
-        const tooLongPlaintext = new Uint8Array(113);
+        const validPlaintext = new Uint8Array(64);
+        const tooLongPlaintext = new Uint8Array(65);
 
         // Case: _data has length not equal to 3
         await expect(
@@ -157,7 +157,7 @@ describe("AES128 Library", function () {
         // Case: Plaintext too long
         await expect(
             testAes128.encryptBlock([validKeyIv, tooLongPlaintext, validKeyIv])
-        ).to.be.revertedWith("Plaintext must be at most 112 bytes long");
+        ).to.be.revertedWith("Plaintext must be at most 64 bytes long");
 
         // Case: Counter not 16 bytes
         await expect(
