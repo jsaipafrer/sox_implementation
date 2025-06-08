@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL 3.0
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
-
 library AccumulatorVerifier {
     function getNeighbor(uint256 index) internal pure returns (uint256) {
         if (index % 2 == 0) return index + 1;

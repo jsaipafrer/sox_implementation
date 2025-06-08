@@ -8,20 +8,7 @@ import {
     prove_ext_js,
 } from "../../app/lib/circuits/wasm/circuits";
 import { readFile } from "node:fs/promises";
-
-function generateRandomBytes(n: number): Uint8Array {
-    if (n <= 0) {
-        throw new Error("Length must be a positive integer.");
-    }
-    const randomBytes = new Uint8Array(n);
-
-    for (let i = 0; i < n; i++) {
-        // Generate a random byte value between 0 and 255
-        randomBytes[i] = Math.floor(Math.random() * 256);
-    }
-
-    return randomBytes;
-}
+import { randomBytes } from "node:crypto";
 
 function generateRandomUint8Arrays(count: number): Uint8Array[] {
     const randomUint8Arrays: Uint8Array[] = [];
@@ -29,9 +16,7 @@ function generateRandomUint8Arrays(count: number): Uint8Array[] {
     for (let i = 0; i < count; i++) {
         // Generate a random size between 1 and 1023
         const size = Math.floor(Math.random() * 1024) + 1;
-        // const size = Math.floor(Math.random() * 10) + 1;
-        const randomBytes = generateRandomBytes(size);
-        randomUint8Arrays.push(randomBytes);
+        randomUint8Arrays.push(randomBytes(size));
     }
 
     return randomUint8Arrays;

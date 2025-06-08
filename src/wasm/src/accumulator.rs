@@ -257,11 +257,11 @@ pub fn prove_ext_js(values: Vec<Uint8Array>) -> Array {
     proof_to_js_array(proof)
 }
 
-fn vec_u8_to_uint8_array(v: &Vec<u8>) -> Uint8Array {
+pub fn vec_u8_to_uint8_array(v: &Vec<u8>) -> Uint8Array {
     Uint8Array::from(v.as_slice())
 }
 
-fn uint8_array_to_vec_u8(arr: &Uint8Array) -> Vec<u8> {
+pub fn uint8_array_to_vec_u8(arr: &Uint8Array) -> Vec<u8> {
     (0..arr.length())
         .map(|i| arr.get_index(i))
         .collect()

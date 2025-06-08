@@ -65,8 +65,26 @@ describe("DisputeSOX", function () {
         commitmentOpener = await CommitmentOpenerFactory.deploy();
         await commitmentOpener.waitForDeployment();
 
+        const disputeDeployerFac = await ethers.getContractFactory(
+            "DisputeDeployer",
+            {
+                libraries: {
+                    AccumulatorVerifier: await accumulatorVerifier.getAddress(),
+                    CircuitEvaluator: await circuitEvaluator.getAddress(),
+                    CommitmentOpener: await commitmentOpener.getAddress(),
+                },
+            }
+        );
+        const disputeDeployer = await disputeDeployerFac.deploy();
+        await disputeDeployer.waitForDeployment();
+
         const OptimisticSOXFactory = await ethers.getContractFactory(
-            "MockOptimisticSOX"
+            "MockOptimisticSOX",
+            {
+                libraries: {
+                    DisputeDeployer: await disputeDeployer.getAddress(),
+                },
+            }
         );
         optimistic = await OptimisticSOXFactory.deploy(
             buyer,
@@ -219,7 +237,7 @@ describe("DisputeSOX", function () {
                         AccumulatorVerifier:
                             await accumulatorVerifier.getAddress(),
                         CircuitEvaluator: await circuitEvaluator.getAddress(),
-                        CommitmentVerifier: await commitmentOpener.getAddress(),
+                        CommitmentOpener: await commitmentOpener.getAddress(),
                     },
                 }
             );
@@ -245,7 +263,7 @@ describe("DisputeSOX", function () {
                         AccumulatorVerifier:
                             await accumulatorVerifier.getAddress(),
                         CircuitEvaluator: await circuitEvaluator.getAddress(),
-                        CommitmentVerifier: await commitmentOpener.getAddress(),
+                        CommitmentOpener: await commitmentOpener.getAddress(),
                     },
                 }
             );
