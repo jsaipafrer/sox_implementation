@@ -102,8 +102,14 @@ contract DisputeSOX {
      */
     uint256 public timeoutIncrement;
 
+    /**
+     * @dev The price agreed by the vendor and the buyer for the asset
+     */
     uint256 public agreedPrice;
 
+    /**
+     * @dev Constant used to check whether a gate's son is a constant
+     */
     uint32 constant CONSTANT_FLAG = 1 << 31;
 
     // Checks that the expected sender calls the function and that the contract
@@ -527,6 +533,8 @@ contract DisputeSOX {
         }
     }
 
+    // Returns _gate's sons that are not constants and the corresponding values
+    // in _valuesKeccak
     function extractNonConstantSons(
         uint32[] memory _gate,
         bytes32[] memory _valuesKeccak
@@ -557,6 +565,8 @@ contract DisputeSOX {
         }
     }
 
+    // Splits _gate's sons and the corresponding values' hashes according to
+    // the set L of the paper
     function extractInAndNotInL(
         uint32[] memory _gate,
         bytes32[] memory _valuesKeccak
@@ -604,6 +614,7 @@ contract DisputeSOX {
         }
     }
 
+    // Returns true if i is an index for a constant
     function isConstantIdx(uint32 i) internal pure returns (bool) {
         return i & CONSTANT_FLAG != 0;
     }
@@ -618,18 +629,6 @@ contract DisputeSOX {
         }
 
         return false;
-    }
-
-    function hashIntArray(
-        uint32[] calldata _arr
-    ) internal pure returns (bytes32[] memory) {
-        bytes32[] memory hashes = new bytes32[](_arr.length);
-
-        for (uint32 i = 0; i < _arr.length; ++i) {
-            hashes[i] = keccak256(abi.encode(_arr[i]));
-        }
-
-        return hashes;
     }
 
     // Returns the keccak256 hashes of the elements of a bytes array

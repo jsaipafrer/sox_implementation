@@ -1,7 +1,18 @@
 // SPDX-License-Identifier: GPL 3.0
 pragma solidity ^0.8.0;
 
+/**
+ * @title SimpleOperationsEvaluator
+ * @notice A library for evaluating simple operations.
+ * @dev This library provides functions to perform simple operations such as equality checks, binary addition, binary multiplication, and concatenation.
+ */
 library SimpleOperationsEvaluator {
+    /**
+     * @notice Checks if all the provided byte arrays are equal.
+     * @dev This function checks if all the byte arrays in the input are equal.
+     * @param _data The byte arrays to check for equality.
+     * @return A byte array indicating the result of the equality check.
+     */
     function equal(bytes[] memory _data) external pure returns (bytes memory) {
         require(_data.length >= 2, "Equality requires at least 2 operators");
 
@@ -15,6 +26,12 @@ library SimpleOperationsEvaluator {
         return hex"01";
     }
 
+    /**
+     * @notice Performs binary addition on two byte arrays.
+     * @dev This function adds two byte arrays as if they were big-endian unsigned integers.
+     * @param _data The byte arrays to add, must contain exactly two elements.
+     * @return The result of the addition as a byte array.
+     */
     function binAdd(bytes[] memory _data) external pure returns (bytes memory) {
         require(_data.length == 2, "Addition requires exactly 2 operators");
         require(
@@ -40,6 +57,12 @@ library SimpleOperationsEvaluator {
         }
     }
 
+    /**
+     * @notice Performs binary multiplication on two byte arrays.
+     * @dev This function multiplies two byte arrays as if they were big-endian unsigned integers.
+     * @param _data The byte arrays to multiply, must contain exactly two elements.
+     * @return The result of the multiplication as a byte array.
+     */
     function binMult(
         bytes[] memory _data
     ) external pure returns (bytes memory) {
@@ -70,6 +93,12 @@ library SimpleOperationsEvaluator {
         }
     }
 
+    /**
+     * @notice Concatenates multiple byte arrays.
+     * @dev This function concatenates the provided byte arrays into a single byte array.
+     * @param _data The byte arrays to concatenate.
+     * @return The concatenated byte array.
+     */
     function concat(bytes[] memory _data) external pure returns (bytes memory) {
         require(
             _data.length > 0,

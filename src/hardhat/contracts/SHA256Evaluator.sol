@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: GPL 3.0
 pragma solidity ^0.8.0;
 
+/**
+ * @title SHA256Evaluator
+ * @notice A library for evaluating SHA-256 hashing operations.
+ * @dev This library provides functions to perform SHA-256 hashing and related operations.
+ */
 library SHA256Evaluator {
+    // Rotates a 32-bit word to the right by a specified number of bits.
     function ror(uint32 w, uint8 n) internal pure returns (uint32) {
         return ((w >> n) | (w << (32 - n)));
     }
 
+    // Performs the compression function for SHA-256
     function internalCompression(
         uint32[8] memory _previousDigest,
         bytes memory _inputBlock
@@ -127,6 +134,7 @@ library SHA256Evaluator {
         }
     }
 
+    // Prepares the message schedule for SHA-256.
     function prepareMessageSchedule(
         bytes memory _inputBlock
     ) internal pure returns (uint32[64] memory words) {
@@ -153,6 +161,7 @@ library SHA256Evaluator {
         }
     }
 
+    // Performs a single round of the SHA-256 compression function
     function compressionRound(
         uint32 a,
         uint32 b,
@@ -181,10 +190,13 @@ library SHA256Evaluator {
         }
     }
 
-    /*
-    Data format:
-    _data = [previous digest (optional; 32 bytes), block (64 bytes)]
-    */
+    /**
+     * @notice Performs the SHA-256 compression instruction.
+     * @dev This function performs the SHA-256 compression on the provided data.
+     * @param _data The data to compress. The format should be the following: 
+                [previous digest (optional; 32 bytes), block (64 bytes)]
+     * @return The compressed data.
+     */
     function sha256CompressionInstruction(
         bytes[] memory _data
     ) external pure returns (bytes memory) {
@@ -218,6 +230,17 @@ library SHA256Evaluator {
         return internalCompression(previousDigest, inputBlock);
     }
 
+    /**
+     * @notice Performs the final SHA-256 compression instruction (padding + compression).
+     * @dev This function performs the final SHA-256 compression on the provided data.
+     * @param _data The data to compress. The format should be the following: 
+            [
+                previous digest (optional; 32 bytes), 
+                block (64 bytes), 
+                message length (8 bytes, big-endian)
+            ]
+     * @return The compressed data.
+     */
     function sha256FinalCompressionInstruction(
         bytes[] memory _data
     ) external pure returns (bytes memory) {
@@ -277,6 +300,7 @@ library SHA256Evaluator {
         return result;
     }
 
+    // Prepares the previous digest for SHA-256 compression instruction
     function preparePreviousDigest(
         bytes memory _data,
         bool isDefault
@@ -298,6 +322,7 @@ library SHA256Evaluator {
         }
     }
 
+    // Performs a standard SHA-256 padding on the last block of data
     function sha256Padding(
         bytes memory _lastBlock,
         uint64 _fullDataLen
@@ -344,6 +369,7 @@ library SHA256Evaluator {
         }
     }
 
+    // Converts a byte array to a uint32 array.
     function bytes_to_uint32_array(
         bytes memory _input
     ) internal pure returns (uint32[8] memory result) {

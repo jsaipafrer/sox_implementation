@@ -5,11 +5,25 @@ import {SHA256Evaluator} from "./SHA256Evaluator.sol";
 import {SimpleOperationsEvaluator} from "./SimpleOperationsEvaluator.sol";
 import {AES128CtrEvaluator} from "./AES128CtrEvaluator.sol";
 
+/**
+ * @dev Struct representing an instruction in the circuit evaluator.
+ * @param f The function associated with the instruction.
+ */
 struct Instruction {
     function(bytes[] memory) internal pure returns (bytes memory) f;
 }
 
+/**
+ * @title CircuitEvaluator
+ * @notice A library for evaluating circuit gates.
+ * @dev This library provides functions to evaluate gates in a circuit using a set of instructions.
+ */
 library CircuitEvaluator {
+    /**
+     * @notice Gets the set of instructions for the circuit evaluator.
+     * @dev This function returns an array of instruction sets for different versions.
+     * @return The instruction sets for the circuit evaluator.
+     */
     function getInstructionSet()
         internal
         pure
@@ -29,6 +43,14 @@ library CircuitEvaluator {
         ];
     }
 
+    /**
+     * @notice Evaluates a gate in the circuit.
+     * @dev This function evaluates a gate using the provided data and instruction set version.
+     * @param _gate The gate to evaluate, represented as an array of integers.
+     * @param _data The data to use in the evaluation, represented as an array of bytes.
+     * @param _version The version of the instruction set to use.
+     * @return The result of the gate evaluation as bytes.
+     */
     function evaluateGate(
         uint32[] calldata _gate, // == [op, s_1, ..., s_a]
         bytes[] memory _data, // == [v_1, ..., v_a]

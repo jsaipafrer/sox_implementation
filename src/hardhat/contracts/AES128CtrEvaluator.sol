@@ -1,11 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @title AES128CtrEvaluator
+ * @notice A library for AES-128 encryption and decryption using Counter (CTR) mode.
+ * @dev This library provides functions to perform AES-128 encryption and decryption in CTR mode.
+ */
 library AES128CtrEvaluator {
+    /**
+     * @dev The number of columns (32-bit words) comprising the State.
+     */
     uint8 constant Nb = 4;
+
+    /**
+     * @dev The number of 32-bit words comprising the Cipher Key.
+     */
     uint8 constant Nk = 4;
+
+    /**
+     * @dev The number of rounds
+     */
     uint8 constant Nr = 10;
 
+    /**
+     * @notice Gets the substitution box (S-box) used in AES.
+     * @dev The S-box is a lookup table used in the SubBytes step.
+     * @return The S-box as an array of bytes.
+     */
     function getSBox() internal pure returns (uint8[256] memory) {
         // prettier-ignore
         return [
@@ -28,6 +49,12 @@ library AES128CtrEvaluator {
         ];
     }
 
+    /**
+     * @notice Substitutes a word using the S-box.
+     * @dev This function applies the S-box to each byte of the word.
+     * @param word The word to substitute.
+     * @return The substituted word.
+     */
     function subWord(uint32 word) internal pure returns (uint32) {
         uint8[256] memory sbox = getSBox();
 
@@ -38,10 +65,22 @@ library AES128CtrEvaluator {
             (uint32(sbox[uint8(word)]));
     }
 
+    /**
+     * @notice Rotates a word by one byte to the left.
+     * @dev This function is used in the key expansion routine.
+     * @param word The word to rotate.
+     * @return The rotated word.
+     */
     function rotWord(uint32 word) internal pure returns (uint32) {
         return (word << 8) | (word >> 24);
     }
 
+    /**
+     * @notice Expands the cipher key into the key schedule.
+     * @dev This function generates the round keys used in each round of encryption.
+     * @param key The cipher key.
+     * @return w The expanded key schedule.
+     */
     function keyExpansion(
         bytes16 key
     ) internal pure returns (uint32[44] memory w) {
@@ -62,6 +101,12 @@ library AES128CtrEvaluator {
         }
     }
 
+    /**
+     * @notice Computes the round constant used in key expansion.
+     * @dev This function generates the round constant for a given round.
+     * @param i The round number.
+     * @return The round constant.
+     */
     function rcon(uint8 i) internal pure returns (uint32) {
         uint8 c = 1;
         if (i == 0) return 0;
@@ -71,10 +116,22 @@ library AES128CtrEvaluator {
         return uint32(c) << 24;
     }
 
+    /**
+     * @notice Multiplies a byte by x in the finite field GF(2^8).
+     * @dev This function is used in the MixColumns step.
+     * @param x The byte to multiply.
+     * @return The result of the multiplication.
+     */
     function xtime(uint8 x) internal pure returns (uint8) {
         return ((x << 1) ^ ((x >> 7) * 0x1b));
     }
 
+    /**
+     * @notice Adds the round key to the state.
+     * @dev This function combines the state with the round key using bitwise XOR.
+     * @param state The current state.
+     * @param w The round key.
+     */
     function addRoundKey(
         uint8[16] memory state,
         uint32[4] memory w
@@ -87,6 +144,11 @@ library AES128CtrEvaluator {
         }
     }
 
+    /**
+     * @notice Substitutes each byte of the state using the S-box.
+     * @dev This function applies the S-box to each byte of the state.
+     * @param state The current state.
+     */
     function subBytes(uint8[16] memory state) internal pure {
         uint8[256] memory sbox = getSBox();
         for (uint8 i = 0; i < 16; i++) {
@@ -94,6 +156,11 @@ library AES128CtrEvaluator {
         }
     }
 
+    /**
+     * @notice Shifts the rows of the state.
+     * @dev This function performs a cyclic shift on the rows of the state.
+     * @param state The current state.
+     */
     function shiftRows(uint8[16] memory state) internal pure {
         uint8 temp;
 
@@ -120,6 +187,11 @@ library AES128CtrEvaluator {
         state[7] = temp;
     }
 
+    /**
+     * @notice Mixes the columns of the state.
+     * @dev This function combines the bytes in each column of the state.
+     * @param state The current state.
+     */
     function mixColumns(uint8[16] memory state) internal pure {
         for (uint8 i = 0; i < 4; i++) {
             uint8 a0 = state[i * 4];
@@ -134,6 +206,13 @@ library AES128CtrEvaluator {
         }
     }
 
+    /**
+     * @notice Encrypts a single block of plaintext.
+     * @dev This function performs AES-128 encryption on a single block of plaintext.
+     * @param plaintext The plaintext to encrypt.
+     * @param key The cipher key.
+     * @return The ciphertext.
+     */
     function encryptBlockInternal(
         bytes16 plaintext,
         bytes16 key
@@ -165,6 +244,13 @@ library AES128CtrEvaluator {
         return result;
     }
 
+    /**
+     * @notice Slices a round key from the key schedule.
+     * @dev This function extracts a round key from the key schedule.
+     * @param w The key schedule.
+     * @param offset The offset in the key schedule.
+     * @return rk The round key.
+     */
     function sliceRoundKey(
         uint32[44] memory w,
         uint8 offset
@@ -174,11 +260,23 @@ library AES128CtrEvaluator {
         }
     }
 
+    /**
+     * @notice Increments the counter used in CTR mode.
+     * @dev This function increments the counter by one.
+     * @param ctr The counter.
+     * @return The incremented counter.
+     */
     function incrementCounter(bytes16 ctr) internal pure returns (bytes16) {
         uint128 num = uint128(bytes16(ctr));
         return bytes16(bytes16(uint128(num + 1)));
     }
 
+    /**
+     * @notice Encrypts a block of plaintext in CTR mode.
+     * @dev This function performs AES-128 encryption in CTR mode on a block of plaintext.
+     * @param _data An array containing the key, plaintext, and counter.
+     * @return The ciphertext.
+     */
     function encryptBlock(
         bytes[] memory _data
     ) public pure returns (bytes memory) {
@@ -214,6 +312,12 @@ library AES128CtrEvaluator {
         return ciphertext;
     }
 
+    /**
+     * @notice Decrypts a block of ciphertext in CTR mode.
+     * @dev This function performs AES-128 decryption in CTR mode on a block of ciphertext.
+     * @param _data An array containing the key, ciphertext, and counter.
+     * @return The plaintext.
+     */
     function decryptBlock(
         bytes[] memory _data
     ) public pure returns (bytes memory) {
