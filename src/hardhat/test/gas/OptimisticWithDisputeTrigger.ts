@@ -91,28 +91,15 @@ describe("OptimisticSOX", function () {
             // vendor sends key
             await contract.connect(vendor).sendKey(ethers.toUtf8Bytes("key"));
 
-            // buyer registers its dispute sponsor
-            await contract
-                .connect(buyer)
-                .registerBuyerDisputeSponsor(buyerDisputeSponsor);
-
             // sb deposits dispute fees
             await contract
                 .connect(buyerDisputeSponsor)
                 .sendBuyerDisputeSponsorFee({ value: 10n + disputeTip });
 
-            // vendor registers its dispute sponsor
-            await contract
-                .connect(vendor)
-                .registerVendorDisputeSponsor(vendorDisputeSponsor);
-
-            // sv deposits dispute fees
+            // sv deposits dispute fees and starts the dispute
             await contract
                 .connect(vendorDisputeSponsor)
                 .sendVendorDisputeSponsorFee({ value: 10n + disputeTip });
-
-            // sb starts the dispute
-            await contract.connect(buyerDisputeSponsor).startDispute();
         }
     });
 });

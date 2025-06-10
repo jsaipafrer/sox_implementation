@@ -12,7 +12,7 @@ contract MockOptimisticSOX {
     address public vendorDisputeSponsor;
     uint256 public timeoutIncrement;
     uint256 public agreedPrice;
-    uint8 public currState = 6; // default WaitDisputeStart
+    uint8 public currState = 3; // default WaitSV
 
     constructor(
         address _buyer,
@@ -31,8 +31,8 @@ contract MockOptimisticSOX {
     }
 
     function deployDispute(
-        uint256 _numBlocks,
-        uint256 _numGates,
+        uint32 _numBlocks,
+        uint32 _numGates,
         bytes32 _commitment
     ) external payable returns (address) {
         address deployed = DisputeDeployer.deployDispute(

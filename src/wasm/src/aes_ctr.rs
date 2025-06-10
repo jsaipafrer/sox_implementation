@@ -3,6 +3,7 @@ use aes::cipher::{KeyIvInit, StreamCipher};
 use rand::RngCore;
 use wasm_bindgen::prelude::wasm_bindgen;
 use crate::accumulator::uint8_array_to_vec_u8;
+use crate::utils::die;
 
 type Aes128Ctr128BE = ctr::Ctr128BE<aes::Aes128>;
 
@@ -66,7 +67,7 @@ fn internal_encrypt(key: &[u8], block: &[u8], ctr: &[u8]) -> Vec<u8> {
 
     let mut cipher = match Aes128Ctr128BE::new_from_slices(key, ctr) {
         Ok(c) => c,
-        Err(e) => { crate::log("Key should be 16 bytes"); panic!() }
+        Err(_) => { die("Key should be 16 bytes") }
     };
     cipher.apply_keystream(&mut res);
 

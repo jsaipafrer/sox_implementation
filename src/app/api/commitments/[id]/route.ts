@@ -10,7 +10,7 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     const { id } = await params;
-    let stmt = db.prepare(`SELECT commitment FROM contracts WHERE id = ?`);
+    const stmt = db.prepare(`SELECT commitment FROM contracts WHERE id = ?`);
     const resp = stmt.all(id)[0] as CommitmentResponse;
 
     return NextResponse.json({ commitment: resp.commitment });

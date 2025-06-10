@@ -60,12 +60,12 @@ contract DisputeSOX {
     /**
      * @dev The number of blocks of the ciphertext (m in the paper)
      */
-    uint256 public numBlocks;
+    uint32 public numBlocks;
 
     /**
      * @dev The number of gates in the circuit (n in the paper)
      */
-    uint256 public numGates;
+    uint32 public numGates;
 
     /**
      * @dev The commitment value
@@ -75,22 +75,22 @@ contract DisputeSOX {
     /**
      * @dev The first value used for the challenge
      */
-    uint256 public a;
+    uint32 public a;
 
     /**
      * @dev The second value used for the challenge
      */
-    uint256 public b;
+    uint32 public b;
 
     /**
      * @dev The challenge index (i in the paper)
      */
-    uint256 public chall;
+    uint32 public chall;
 
     /**
      * @dev Mapping of buyer responses
      */
-    mapping(uint256 => bytes32) public buyerResponses;
+    mapping(uint32 => bytes32) public buyerResponses;
 
     /**
      * @dev The next timeout value for the dispute resolution process
@@ -103,6 +103,8 @@ contract DisputeSOX {
     uint256 public timeoutIncrement;
 
     uint256 public agreedPrice;
+
+    uint32 constant CONSTANT_FLAG = 1 << 31;
 
     // Checks that the expected sender calls the function and that the contract
     // is in the expected state
@@ -117,14 +119,14 @@ contract DisputeSOX {
 
     constructor(
         address _optimisticContract,
-        uint256 _numBlocks,
-        uint256 _numGates,
+        uint32 _numBlocks,
+        uint32 _numGates,
         bytes32 _commitment
     ) payable {
         optimisticContract = IOptimisticSOX(_optimisticContract);
         require(
-            optimisticContract.currState() == OptimisticState.WaitDisputeStart,
-            "Optimistic contract is not waiting for a dispute to start"
+            optimisticContract.currState() == OptimisticState.WaitSV,
+            "Optimistic contract cannot start a dispute in the current state"
         );
         require(
             msg.value >= optimisticContract.agreedPrice(),
@@ -142,8 +144,8 @@ contract DisputeSOX {
         numGates = _numGates;
         commitment = _commitment;
 
-        a = _numBlocks + 1;
-        b = _numGates + 1;
+        a = _numBlocks; // no +1 because index starts at 0
+        b = _numGates; // same here
         chall = (a + b) / 2; // integer division
         nextState(State.ChallengeBuyer);
     }
@@ -183,11 +185,11 @@ contract DisputeSOX {
         }
 
         chall = a;
-        if (numBlocks + 1 < chall && chall <= numGates) {
+        if (numBlocks < chall && chall < numGates) {
             return nextState(State.WaitVendorData);
-        } else if (chall == numBlocks + 1) {
+        } else if (chall == numBlocks) {
             return nextState(State.WaitVendorDataLeft);
-        } else if (chall == numGates + 1) {
+        } else if (chall == numGates) {
             return nextState(State.WaitVendorDataRight);
         }
 
@@ -197,7 +199,7 @@ contract DisputeSOX {
 
     /**
      * @notice Submit the data necessary for verification in the case where
-     *      m + 1 < i <= n
+     *      m < i < n (8a)
      * @dev This function allows the vendor to submit a commitment along with
      *      necessary data for evaluation and proof verification
      * @param _openingValue The opening value related to the contract's commitment
@@ -214,10 +216,10 @@ contract DisputeSOX {
      */
     function submitCommitment(
         bytes calldata _openingValue,
-        uint256 _gateNum,
-        uint256[] calldata _gate, // == [op, s_1, ..., s_a]
+        uint32 _gateNum,
+        uint32[] calldata _gate, // == [op, s_1, ..., s_a]
         bytes[] calldata _values, // == [v_1, ..., v_a]
-        uint256 _version,
+        uint32 _version,
         bytes32 _currAcc,
         bytes32[][] memory _proof1,
         bytes32[][] memory _proof2,
@@ -234,16 +236,8 @@ contract DisputeSOX {
 
         // compute the hashes that will be used as leaves for the merkle trees
         bytes32[] memory valuesKeccak = hashBytesArray(_values);
-        bytes32[] memory gateKeccak = hashIntArray(_gate);
-
-        // separate the gate's sons list and values according to the set L of
-        // indices as defined in the paper
-        (
-            uint256[] memory sInL,
-            bytes32[] memory vInL,
-            uint256[] memory sNotInLlMinusM,
-            bytes32[] memory vNotInL
-        ) = extractInAndNotInL(_gate, valuesKeccak);
+        bytes32[] memory gateKeccak = new bytes32[](1);
+        gateKeccak[0] = keccak256(abi.encode(_gate));
 
         // compute the gate's result
         bytes memory gateRes = CircuitEvaluator.evaluateGate(
@@ -252,8 +246,17 @@ contract DisputeSOX {
             _version
         );
 
+        // separate the gate's sons list and values according to the set L of
+        // indices as defined in the paper
+        (
+            uint32[] memory sInL,
+            bytes32[] memory vInL,
+            uint32[] memory sNotInLMinusM,
+            bytes32[] memory vNotInL
+        ) = extractInAndNotInL(_gate, valuesKeccak);
+
         // can't just use [_gateNum], need to create a separate array for this...
-        uint256[] memory gateNumArray = new uint256[](1);
+        uint32[] memory gateNumArray = new uint32[](1);
         gateNumArray[0] = _gateNum;
 
         if (
@@ -272,7 +275,7 @@ contract DisputeSOX {
             ) &&
             AccumulatorVerifier.verify(
                 buyerResponses[_gateNum - 1],
-                sNotInLlMinusM,
+                sNotInLMinusM,
                 vNotInL,
                 _proof3
             ) &&
@@ -280,7 +283,7 @@ contract DisputeSOX {
                 _gateNum - numBlocks,
                 buyerResponses[_gateNum - 1],
                 _currAcc,
-                bytes32(gateRes),
+                keccak256(gateRes),
                 _proofExt
             )
         ) {
@@ -292,7 +295,7 @@ contract DisputeSOX {
 
     /**
      * @notice Submit the data necessary for verification in the case where
-     *      i == m + 1
+     *      i == m (8b)
      * @dev This function allows the vendor to submit a commitment along with
      *      necessary data for evaluation and proof verification
      * @param _openingValue The opening value related to the contract's commitment
@@ -308,10 +311,10 @@ contract DisputeSOX {
      */
     function submitCommitmentLeft(
         bytes calldata _openingValue,
-        uint256 _gateNum,
-        uint256[] calldata _gate, // g_i == [op, s_1, ..., s_n]
+        uint32 _gateNum,
+        uint32[] calldata _gate,
         bytes[] calldata _values,
-        uint256 _version,
+        uint32 _version,
         bytes32 _currAcc,
         bytes32[][] memory _proof1,
         bytes32[][] memory _proof2,
@@ -319,58 +322,86 @@ contract DisputeSOX {
     ) public onlyExpected(vendor, State.WaitVendorDataLeft) {
         require(
             _gate.length == _values.length + 1,
-            "Values' and gate's length do not match the requirements (values "
-            "length must be == gate.length - 1)"
+            "Values' and gate's length must match"
         );
 
-        bytes32[2] memory hCircuitCt = openCommitment(_openingValue);
-
-        // compute the gate's result
-        bytes memory gateRes = CircuitEvaluator.evaluateGate(
+        bool verified = verifyCommitmentLeft(
+            _openingValue,
+            _gateNum,
             _gate,
             _values,
-            _version
+            _version,
+            _currAcc,
+            _proof1,
+            _proof2,
+            _proofExt
         );
 
-        // can't just use [_gateNum], need to create a separate array for this...
-        uint256[] memory gateNumArray = new uint256[](1);
-        gateNumArray[0] = _gateNum;
-
-        // compute the hashes that will be used as leaves for the merkle trees
-        bytes32[] memory _gateKeccak = hashIntArray(_gate);
-        bytes32[] memory _valuesKeccak = hashBytesArray(_values);
-
-        if (
-            _currAcc != buyerResponses[_gateNum] &&
-            AccumulatorVerifier.verify(
-                hCircuitCt[0], // hCircuit
-                gateNumArray,
-                _gateKeccak,
-                _proof1
-            ) &&
-            AccumulatorVerifier.verify(
-                hCircuitCt[1], // hCt
-                _gate[1:],
-                _valuesKeccak,
-                _proof2
-            ) &&
-            AccumulatorVerifier.verifyExt(
-                _gateNum - numBlocks,
-                "",
-                _currAcc,
-                bytes32(gateRes),
-                _proofExt
-            )
-        ) {
+        if (verified) {
             nextState(State.Complete);
         } else {
             nextState(State.Cancel);
         }
     }
 
+    // helper function for submitCommitmentLeft because EVM is trash and doesn't
+    // accept too many variables on the stack
+    function verifyCommitmentLeft(
+        bytes calldata _openingValue,
+        uint32 _gateNum,
+        uint32[] calldata _gate,
+        bytes[] calldata _values,
+        uint32 _version,
+        bytes32 _currAcc,
+        bytes32[][] memory _proof1,
+        bytes32[][] memory _proof2,
+        bytes32[][] memory _proofExt
+    ) internal view returns (bool) {
+        bytes32[2] memory hCircuitCt = openCommitment(_openingValue);
+
+        bytes memory gateRes = CircuitEvaluator.evaluateGate(
+            _gate,
+            _values,
+            _version
+        );
+
+        uint32[] memory gateNumArray = new uint32[](1);
+        gateNumArray[0] = _gateNum;
+
+        bytes32[] memory valuesKeccak = hashBytesArray(_values);
+        bytes32[] memory gateKeccak = new bytes32[](1);
+        gateKeccak[0] = keccak256(abi.encode(_gate));
+
+        (
+            uint32[] memory nonConstantSons,
+            bytes32[] memory nonConstantValuesKeccak
+        ) = extractNonConstantSons(_gate, valuesKeccak);
+
+        return (_currAcc != buyerResponses[_gateNum] &&
+            AccumulatorVerifier.verify(
+                hCircuitCt[0],
+                gateNumArray,
+                gateKeccak,
+                _proof1
+            ) &&
+            AccumulatorVerifier.verify(
+                hCircuitCt[1],
+                nonConstantSons,
+                nonConstantValuesKeccak,
+                _proof2
+            ) &&
+            AccumulatorVerifier.verifyExt(
+                1,
+                "",
+                _currAcc,
+                keccak256(gateRes),
+                _proofExt
+            ));
+    }
+
     /**
      * @notice Submit the data necessary for verification in the case where
-     *      i == n + 1
+     *      i == n (8c)
      * @dev This function allows the vendor to submit a commitment along with
      *      necessary data for evaluation and proof verification
      * @param _proof The proof pi used in the verification
@@ -378,16 +409,16 @@ contract DisputeSOX {
     function submitCommitmentRight(
         bytes32[][] memory _proof
     ) public onlyExpected(vendor, State.WaitVendorDataRight) {
+        bytes memory trueBytes = hex"01";
         bytes32[] memory trueKeccakArr = new bytes32[](1);
-        trueKeccakArr[0] = keccak256(abi.encode(uint256(1)));
+        trueKeccakArr[0] = keccak256(trueBytes);
 
-        uint256[] memory idxArr = new uint256[](1);
-        idxArr[0] = numGates - numBlocks;
+        uint32[] memory idxArr = new uint32[](1);
+        idxArr[0] = numGates - numBlocks - 1;
 
         if (
-            // i == numGates + 1 => i - 1 == numGates - 2
             AccumulatorVerifier.verify(
-                buyerResponses[numGates - 2],
+                buyerResponses[numGates - 1],
                 idxArr,
                 trueKeccakArr,
                 _proof
@@ -482,30 +513,6 @@ contract DisputeSOX {
         nextTimeoutTime = block.timestamp + timeoutIncrement;
     }
 
-    // Returns the elements of the set L as defined in the paper
-    // L = {l | s_l <= m}
-    function getL(
-        uint256[] memory _gate
-    ) internal view returns (uint256[] memory) {
-        uint256[] memory tmp = new uint256[](_gate.length - 1);
-        uint256 numElements = 0;
-
-        // start at 1 because 0 is the opcode
-        for (uint256 i = 1; i < _gate.length; ++i) {
-            if (_gate[i] <= numBlocks) {
-                tmp[numElements] = i;
-                ++numElements;
-            }
-        }
-
-        uint256[] memory res = new uint256[](numElements);
-        for (uint256 i = 0; i < numElements; ++i) {
-            res[i] = tmp[i];
-        }
-
-        return res;
-    }
-
     // Opens the commitment with the provided opening value and parses the result
     function openCommitment(
         bytes calldata _openingValue
@@ -520,61 +527,105 @@ contract DisputeSOX {
         }
     }
 
+    function extractNonConstantSons(
+        uint32[] memory _gate,
+        bytes32[] memory _valuesKeccak
+    )
+        internal
+        pure
+        returns (
+            uint32[] memory nonConstantSons,
+            bytes32[] memory nonConstantValuesKeccak
+        )
+    {
+        uint countNonConstant = 0;
+        for (uint i = 1; i < _gate.length; ++i) {
+            if (!isConstantIdx(_gate[i])) {
+                ++countNonConstant;
+            }
+        }
+
+        nonConstantSons = new uint32[](countNonConstant);
+        nonConstantValuesKeccak = new bytes32[](countNonConstant);
+        uint j = 0;
+        for (uint i = 1; i < _gate.length; ++i) {
+            if (!isConstantIdx(_gate[i])) {
+                nonConstantSons[j] = _gate[i];
+                nonConstantValuesKeccak[j] = _valuesKeccak[i - 1];
+                ++j;
+            }
+        }
+    }
+
     function extractInAndNotInL(
-        uint256[] memory _gate,
+        uint32[] memory _gate,
         bytes32[] memory _valuesKeccak
     )
         internal
         view
         returns (
-            uint256[] memory sInL,
+            uint32[] memory sInL,
             bytes32[] memory vInL,
-            uint256[] memory sNotInLlMinusM,
+            uint32[] memory sNotInLMinusM,
             bytes32[] memory vNotInL
         )
     {
-        uint256[] memory l = getL(_gate);
-        sInL = new uint256[](l.length);
-        vInL = new bytes32[](l.length);
-        sNotInLlMinusM = new uint256[](_valuesKeccak.length - l.length);
-        vNotInL = new bytes32[](_valuesKeccak.length - l.length);
+        uint countInL = 0;
+        uint countNotInL = 0;
 
-        uint256 iterInL = 0;
-        uint256 iterNotInL = 0;
+        for (uint i = 1; i < _gate.length; ++i) {
+            if (isConstantIdx(_gate[i])) continue;
+            if (_gate[i] < numBlocks) {
+                ++countInL;
+            } else {
+                ++countNotInL;
+            }
+        }
 
-        for (uint256 i = 1; i < _gate.length; ++i) {
-            if (intArrayContains(l, i)) {
+        sInL = new uint32[](countInL);
+        vInL = new bytes32[](countInL);
+        sNotInLMinusM = new uint32[](countNotInL);
+        vNotInL = new bytes32[](countNotInL);
+
+        uint iterInL = 0;
+        uint iterNotInL = 0;
+
+        for (uint i = 1; i < _gate.length; ++i) {
+            if (isConstantIdx(_gate[i])) continue;
+            if (_gate[i] < numBlocks) {
                 sInL[iterInL] = _gate[i];
                 vInL[iterInL] = _valuesKeccak[i - 1];
                 ++iterInL;
             } else {
-                sNotInLlMinusM[iterNotInL] = _gate[i] - numBlocks;
+                sNotInLMinusM[iterNotInL] = _gate[i] - numBlocks;
                 vNotInL[iterNotInL] = _valuesKeccak[i - 1];
                 ++iterNotInL;
             }
         }
     }
 
-    // Checks if a uint array _arr contains the value _val
+    function isConstantIdx(uint32 i) internal pure returns (bool) {
+        return i & CONSTANT_FLAG != 0;
+    }
+
+    // Checks if a uint32 array _arr contains the value _val
     function intArrayContains(
-        uint256[] memory _arr,
-        uint256 _val
+        uint32[] memory _arr,
+        uint32 _val
     ) internal pure returns (bool) {
-        for (uint256 i = 0; i < _arr.length; ++i) {
+        for (uint32 i = 0; i < _arr.length; ++i) {
             if (_arr[i] == _val) return true;
         }
 
         return false;
     }
 
-    // Returns the keccak256 hashes of the elements of a uint array
-    // Basically _arr.map(keccak256)
     function hashIntArray(
-        uint256[] calldata _arr
+        uint32[] calldata _arr
     ) internal pure returns (bytes32[] memory) {
         bytes32[] memory hashes = new bytes32[](_arr.length);
 
-        for (uint256 i = 0; i < _arr.length; ++i) {
+        for (uint32 i = 0; i < _arr.length; ++i) {
             hashes[i] = keccak256(abi.encode(_arr[i]));
         }
 
@@ -588,7 +639,7 @@ contract DisputeSOX {
     ) internal pure returns (bytes32[] memory) {
         bytes32[] memory hashes = new bytes32[](_arr.length);
 
-        for (uint256 i = 0; i < _arr.length; ++i) {
+        for (uint32 i = 0; i < _arr.length; ++i) {
             hashes[i] = keccak256(_arr[i]);
         }
 
@@ -602,7 +653,7 @@ contract DisputeSOX {
      * @param _challNum The challenge number
      * @return response The buyer's response at the provided challenge number
      */
-    function getBuyerResponse(uint256 _challNum) public view returns (bytes32) {
+    function getBuyerResponse(uint32 _challNum) public view returns (bytes32) {
         return buyerResponses[_challNum];
     }
 

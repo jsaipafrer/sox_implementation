@@ -28,8 +28,6 @@ CREATE TABLE disputes (
     contract_id INTEGER UNIQUE NOT NULL,
     pk_buyer_sponsor TEXT,
     pk_vendor_sponsor TEXT,
-    buyer_proof_path TEXT, -- no need to store it as blob
-    vendor_proof_path TEXT,
     dispute_smart_contract TEXT,
     CONSTRAINT fk_contract_id
         FOREIGN KEY (contract_id) 

@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-describe("DisputeDeployer via TestDisputeDeployer", () => {
+describe("DisputeDeployer", () => {
     it("should deploy DisputeSOX with correct constructor arguments", async () => {
         const AccumulatorVerifierFactory = await ethers.getContractFactory(
             "AccumulatorVerifier"

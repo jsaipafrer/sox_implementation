@@ -21,10 +21,10 @@ const TMP_DIR = "./tmp";
 const BLOCK_SIZE = 64;
 
 async function time_vendor_compute_precontract_values() {
-    let numBlocks = 1 << 16;
+    // let numBlocks = 1 << 16;
 
     let key = new Uint8Array(16);
-    let file: Uint8Array | undefined = new Uint8Array(numBlocks * BLOCK_SIZE);
+    let file: Uint8Array | undefined = new Uint8Array(8);
 
     console.log(
         "Vendor precontract computations (description, ct, circuit, ct_blocks)"
@@ -132,14 +132,18 @@ async function time_bv_make_argument(desc: string, opening_value: string) {
     };
 }
 
-async function time_sponsor_check_argument(commitment: string) {
+async function time_sponsor_check_argument(
+    commitment: string,
+    description: string,
+    key: string
+) {
     console.log("Dispute sponsor checks argument");
     // argument = (circuit_b, ct, o)
     const argument = readFileSync(`${TMP_DIR}/argument.bin`);
 
     const start = performance.now();
 
-    const success = check_argument(argument, commitment);
+    const success = check_argument(argument, commitment, description, key);
     if (!success) throw new Error("Argument check failed");
 
     const end = performance.now();
@@ -305,8 +309,13 @@ async function main() {
     buyer_time += extra_time;
     vendor_time += extra_time;
 
-    sponsors_time = (await time_sponsor_check_argument(precontract.commitment))
-        .time;
+    sponsors_time = (
+        await time_sponsor_check_argument(
+            precontract.commitment,
+            precontract.description,
+            precontract.key
+        )
+    ).time;
 
     const { time, evaluated } = await time_bv_evaluate_circuit(
         precontract.key,

@@ -48,17 +48,16 @@ export async function giveOpinion(
 }
 
 export async function submitCommitment(
-    h_circuit: Uint8Array,
-    h_ct: Uint8Array,
+    openingValue: string,
     gateNum: number,
-    gateFlat: Uint8Array,
-    values: Uint8Array,
+    gateFlat: number[],
+    values: Uint8Array[],
     version: number,
     currAcc: Uint8Array,
-    proof1: Uint8Array,
-    proof2: Uint8Array,
-    proof3: Uint8Array,
-    proofExt: Uint8Array,
+    proof1: Uint8Array[][],
+    proof2: Uint8Array[][],
+    proof3: Uint8Array[][],
+    proofExt: Uint8Array[][],
     vendorAddr: string,
     contractAddr: string
 ) {
@@ -68,7 +67,7 @@ export async function submitCommitment(
     const wallet = new Wallet(privateKey, PROVIDER);
 
     await (contract.connect(wallet) as Contract).submitCommitment(
-        [h_circuit, h_ct],
+        openingValue,
         gateNum,
         gateFlat,
         values,
@@ -82,16 +81,15 @@ export async function submitCommitment(
 }
 
 export async function submitCommitmentLeft(
-    h_circuit: Uint8Array,
-    h_ct: Uint8Array,
+    openingValue: string,
     gateNum: number,
-    gateFlat: Uint8Array,
-    values: Uint8Array,
+    gateFlat: number[],
+    values: Uint8Array[],
     version: number,
     currAcc: Uint8Array,
-    proof1: Uint8Array,
-    proof2: Uint8Array,
-    proofExt: Uint8Array,
+    proof1: Uint8Array[][],
+    proof2: Uint8Array[][],
+    proofExt: Uint8Array[][],
     vendorAddr: string,
     contractAddr: string
 ) {
@@ -101,7 +99,7 @@ export async function submitCommitmentLeft(
     const wallet = new Wallet(privateKey, PROVIDER);
 
     await (contract.connect(wallet) as Contract).submitCommitmentLeft(
-        [h_circuit, h_ct],
+        openingValue,
         gateNum,
         gateFlat,
         values,
@@ -114,7 +112,7 @@ export async function submitCommitmentLeft(
 }
 
 export async function submitCommitmentRight(
-    proof: Uint8Array,
+    proof: Uint8Array[][],
     vendorAddr: string,
     contractAddr: string
 ) {
@@ -144,13 +142,24 @@ export async function finishDispute(
 }
 
 async function someShit() {
-    let c = "0x60985ee8192B322c3CAbA97A9A9f7298bdc4335C";
+    let c = "0xa16E02E87b7454126E5E10d957A927A7F5B5d2be";
     let contract = new Contract(c, abi, PROVIDER);
 
     console.log("i=", await contract.chall());
     console.log("a=", await contract.a());
     console.log("b=", await contract.b());
+    console.log("state=", await contract.currState());
+    return 1;
+}
+
+async function someShit2() {
+    let c = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    let contract = new Contract(c, abi, PROVIDER);
+
+    console.log("num_blocks=", await contract.numBlocks());
+    console.log("num_gates=", await contract.numGates());
     return 1;
 }
 
 someShit().then((a) => console.log(a));
+someShit2().then((a) => console.log(a));

@@ -2,7 +2,12 @@
 pragma solidity ^0.8.0;
 
 library AccumulatorVerifier {
-    function getNeighbor(uint256 index) internal pure returns (uint256) {
+    struct Pair {
+        uint32 key;
+        bytes32 value;
+    }
+
+    function getNeighbor(uint32 index) internal pure returns (uint32) {
         if (index % 2 == 0) return index + 1;
         else return index - 1;
     }
@@ -13,7 +18,7 @@ library AccumulatorVerifier {
 
     function verify(
         bytes32 root,
-        uint256[] memory indices,
+        uint32[] memory indices,
         bytes32[] memory valuesKeccak,
         bytes32[][] memory proof
     ) public pure returns (bool) {
@@ -21,15 +26,22 @@ library AccumulatorVerifier {
         // by taking the proof in reverse order to use pop() instead of
         // dealing with the removal of the first element of the proof
         // also uses a 2d proof in order to deal with "lonely" elements
-        // Assumes indices is sorted in increasing order
         if (indices.length != valuesKeccak.length) return false;
 
-        for (uint256 l = 0; l < proof.length; l++) {
-            uint256[2][] memory b = new uint256[2][](indices.length);
-            uint256 bPrunedLength = 0;
-            for (uint256 i = 0; i < indices.length; i++) {
-                uint256 currIdx = indices[i];
-                uint256 neighborIdx = getNeighbor(currIdx);
+        // we consider that if no values are supplied, the proof is correct
+        // because the proof will be empty anyways. Also covers the case of
+        // step 8a for proof p_2 if the gate doesn't use any input from the
+        // ciphertext directly (no sInL)
+        if (indices.length == 0) return true;
+
+        (indices, valuesKeccak) = sortAligned(indices, valuesKeccak);
+
+        for (uint32 l = 0; l < proof.length; l++) {
+            uint32[2][] memory b = new uint32[2][](indices.length);
+            uint32 bPrunedLength = 0;
+            for (uint32 i = 0; i < indices.length; i++) {
+                uint32 currIdx = indices[i];
+                uint32 neighborIdx = getNeighbor(currIdx);
 
                 if (neighborIdx < currIdx) b[i] = [neighborIdx, currIdx];
                 else b[i] = [currIdx, neighborIdx];
@@ -39,15 +51,15 @@ library AccumulatorVerifier {
                 }
             }
 
-            uint256[] memory nextIndices = new uint256[](bPrunedLength);
+            uint32[] memory nextIndices = new uint32[](bPrunedLength);
             bytes32[] memory nextValues = new bytes32[](bPrunedLength);
             // proofs were initially reversed to use .pop() but it only works on storage
             // which uses more gas
             // we also take the +1 to avoid conversions between uint and int
             uint256 nextElementPlusOne = proof[l].length;
-            uint256 indicesI = 0;
-            uint256 valuesI = 0;
-            for (uint256 i = 0; i < b.length; i++) {
+            uint32 indicesI = 0;
+            uint32 valuesI = 0;
+            for (uint32 i = 0; i < b.length; i++) {
                 if (i + 1 < b.length && b[i][0] == b[i + 1][0]) {
                     // duplicate found
                     // this means that b[i][0] and b[i][1] are elements of
@@ -65,8 +77,8 @@ library AccumulatorVerifier {
                     i++; // skip next element (duplicate)
                 } else if (nextElementPlusOne > 0) {
                     // index needed to hash elements in the correct order
-                    uint256 correspondingIdx = indices[i];
-                    uint256 neighborIdx = getNeighbor(correspondingIdx);
+                    uint32 correspondingIdx = indices[i];
+                    uint32 neighborIdx = getNeighbor(correspondingIdx);
 
                     if (neighborIdx < correspondingIdx) {
                         nextValues[valuesI] = hash(
@@ -99,6 +111,7 @@ library AccumulatorVerifier {
             valuesKeccak.length == 1,
             "Something went wrong during the verification"
         );
+
         return valuesKeccak[0] == root;
     }
 
@@ -108,7 +121,7 @@ library AccumulatorVerifier {
     ) internal pure returns (bool) {
         bool firstFound = false;
         bytes32 computedRoot;
-        for (uint256 i = 0; i < proof.length; i++) {
+        for (uint32 i = 0; i < proof.length; i++) {
             uint256 nextElementPlusOne = proof[i].length;
             while (nextElementPlusOne > 0) {
                 if (!firstFound) {
@@ -130,13 +143,13 @@ library AccumulatorVerifier {
     }
 
     function verifyExt(
-        uint256 i,
+        uint32 i,
         bytes32 prevRoot,
         bytes32 currRoot,
         bytes32 addedValKeccak,
         bytes32[][] calldata proof
     ) public pure returns (bool) {
-        uint256[] memory iArr = new uint256[](1);
+        uint32[] memory iArr = new uint32[](1);
         iArr[0] = i;
 
         bytes32[] memory addedValKeccakArr = new bytes32[](1);
@@ -145,5 +158,41 @@ library AccumulatorVerifier {
         return
             verify(currRoot, iArr, addedValKeccakArr, proof) &&
             verifyPrevious(prevRoot, proof);
+    }
+
+    function sortAligned(
+        uint32[] memory indices,
+        bytes32[] memory values
+    )
+        public
+        pure
+        returns (uint32[] memory sortedIndices, bytes32[] memory sortedValues)
+    {
+        require(indices.length == values.length, "Mismatched input lengths");
+
+        uint256 len = indices.length;
+        Pair[] memory pairs = new Pair[](len);
+
+        for (uint256 i = 0; i < len; i++) {
+            pairs[i] = Pair(indices[i], values[i]);
+        }
+
+        // Insertion sort for simplicity (gas-efficient for small arrays)
+        for (uint256 i = 1; i < len; i++) {
+            Pair memory current = pairs[i];
+            uint256 j = i;
+            while (j > 0 && pairs[j - 1].key > current.key) {
+                pairs[j] = pairs[j - 1];
+                j--;
+            }
+            pairs[j] = current;
+        }
+
+        sortedIndices = new uint32[](len);
+        sortedValues = new bytes32[](len);
+        for (uint256 i = 0; i < len; i++) {
+            sortedIndices[i] = pairs[i].key;
+            sortedValues[i] = pairs[i].value;
+        }
     }
 }

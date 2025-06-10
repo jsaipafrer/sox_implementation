@@ -5,12 +5,8 @@ use sha3::{Digest, Keccak256};
 use wasm_bindgen::prelude::wasm_bindgen;
 use rayon::prelude::*;
 use crate::{split_ct_blocks, CompiledCircuit};
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
+use crate::commitment::bytes_to_hex;
+use crate::utils::{die, log};
 
 pub fn acc(values: &[Vec<u8>]) -> Vec<u8> {
     if values.len() == 0 {
@@ -25,18 +21,22 @@ pub fn acc(values: &[Vec<u8>]) -> Vec<u8> {
     compute_merkle_root(hashes)
 }
 
-pub fn prove(values: &[Vec<u8>], indices: &[usize]) -> Vec<Vec<Vec<u8>>> {
-    // TODO error handling (>0 values, >0 indices, values.len >= indices.len, check if all indices are within values)
-    let mut a: Vec<usize> = indices.to_vec();
+pub fn prove(values: &[Vec<u8>], indices: &[u32]) -> Vec<Vec<Vec<u8>>> {
+    if values.len() < indices.len() {
+        die(&format!("Number of indices ({}) is greater than number of values ({})", indices.len(), values.len()));
+    }
+    if indices.len() == 0 || values.len() == 0 { return vec![]; }
+    let mut a = indices.to_vec();
     a.sort();
 
     let mut proof: Vec<Vec<Vec<u8>>> = vec![];
 
     let mut curr_layer: Vec<Vec<u8>> = values.iter().map(hash).collect();
+    log(&format!("curr_layer: {:?}", curr_layer.iter().map(|x| bytes_to_hex(x.clone())).collect::<Vec<String>>()));
 
     while curr_layer.len() > 1 {
-        let mut b: Vec<(usize, usize)> = vec![];
-        let mut diff: Vec<usize> = vec![];
+        let mut b: Vec<(u32, u32)> = vec![];
+        let mut diff: Vec<u32> = vec![];
 
         let mut i = 0;
         while i < a.len() {
@@ -52,7 +52,7 @@ pub fn prove(values: &[Vec<u8>], indices: &[usize]) -> Vec<Vec<Vec<u8>>> {
                 i += 1;
             }
 
-            if !a.contains(&neighbor) && neighbor < curr_layer.len() {
+            if !a.contains(&neighbor) && neighbor < curr_layer.len() as u32 {
                 diff.push(neighbor);
             }
             i += 1;
@@ -61,7 +61,7 @@ pub fn prove(values: &[Vec<u8>], indices: &[usize]) -> Vec<Vec<Vec<u8>>> {
 
         proof.push(diff
             .iter().rev()
-            .map(|&i| curr_layer[i].clone())
+            .map(|&i| curr_layer[i as usize].clone())
             .collect());
 
         curr_layer = compute_next_layer(curr_layer);
@@ -73,15 +73,19 @@ pub fn prove(values: &[Vec<u8>], indices: &[usize]) -> Vec<Vec<Vec<u8>>> {
     proof
 }
 
-pub fn verify(root: &Vec<u8>, indices: &Vec<usize>, values: &[Vec<u8>], proof: &Vec<Vec<Vec<u8>>>) -> bool {
+pub fn verify(root: &Vec<u8>, indices: &Vec<u32>, values: &[Vec<u8>], proof: &Vec<Vec<Vec<u8>>>) -> bool {
     if indices.len() != values.len() { return false; }
 
     let mut proof_copy = proof.clone();
     let mut current_indices = indices.clone();
     let mut layer: Vec<Vec<u8>> = values.iter().map(hash).collect();
 
+    let mut paired: Vec<(u32, Vec<u8>)> = current_indices.into_iter().zip(layer.into_iter()).collect();
+    paired.sort_by_key(|pair| pair.0);
+    (current_indices, layer) = paired.into_iter().unzip();
+
     for proof_layer in &mut proof_copy {
-        let mut b: Vec<(usize, usize)> = vec![];
+        let mut b: Vec<(u32, u32)> = vec![];
 
         for i in &current_indices {
             let neighbor = get_neighbor_idx(i);
@@ -90,7 +94,7 @@ pub fn verify(root: &Vec<u8>, indices: &Vec<usize>, values: &[Vec<u8>], proof: &
             else { b.push((i.clone(), neighbor)) }
         }
 
-        let mut next_indices: Vec<usize> = vec![];
+        let mut next_indices: Vec<u32> = vec![];
         let mut next_layer: Vec<Vec<u8>> = vec![];
 
         let mut i = 0;
@@ -137,10 +141,10 @@ pub fn verify(root: &Vec<u8>, indices: &Vec<usize>, values: &[Vec<u8>], proof: &
 }
 
 pub fn prove_ext(values: &[Vec<u8>]) -> Vec<Vec<Vec<u8>>> {
-    prove(values, &vec![values.len() - 1])
+    prove(values, &vec![(values.len() - 1) as u32])
 }
 
-pub fn verify_ext(i: usize, prev_root: &Vec<u8>, curr_root: &Vec<u8>, added_val: &Vec<u8>, proof: &Vec<Vec<Vec<u8>>>) -> bool {
+pub fn verify_ext(i: u32, prev_root: &Vec<u8>, curr_root: &Vec<u8>, added_val: &Vec<u8>, proof: &Vec<Vec<Vec<u8>>>) -> bool {
     verify(curr_root, &vec![i], &vec![added_val.clone()], proof) && verify_previous(prev_root, proof)
 }
 
@@ -151,7 +155,7 @@ pub fn acc_ct(ct: &[u8], block_size: usize) -> Vec<u8> {
 }
 
 pub fn acc_circuit(circuit: CompiledCircuit) -> Vec<u8> {
-    let circuit_bytes_array = circuit.to_bytes_array();
+    let circuit_bytes_array = circuit.to_abi_encoded();
 
     acc(&circuit_bytes_array)
 }
@@ -189,7 +193,7 @@ fn to_bytes32(data: &Vec<u8>) -> Vec<u8> {
     res
 }
 
-fn get_neighbor_idx(index: &usize) -> usize {
+fn get_neighbor_idx(index: &u32) -> u32 {
     if index % 2 == 0 {
         index + 1
     } else {
@@ -217,6 +221,9 @@ fn verify_previous(prev_root: &Vec<u8>, proof: &Vec<Vec<Vec<u8>>>) -> bool {
 }
 
 fn concat_and_hash(left: &Vec<u8>, right: &Vec<u8>) -> Vec<u8> {
+    assert_eq!(left.len(), 32);
+    assert_eq!(right.len(), 32);
+
     let concat = [left.to_vec(), right.to_vec()].concat();
     hash(&concat)
 }
@@ -245,8 +252,8 @@ pub fn acc_js(values: Vec<Uint8Array>) -> Vec<u8> {
 #[wasm_bindgen]
 pub fn prove_js(values: Vec<Uint8Array>, indices: Array) -> Array {
     let values_vec: Vec<Vec<u8>> = values.iter().map(uint8_array_to_vec_u8).collect();
-    let indices_usize = indices.iter().map(|i| i.as_f64().unwrap() as usize).collect::<Vec<usize>>();
-    let proof = prove(&values_vec, &indices_usize);
+    let indices_u32 = indices.iter().map(|i| i.as_f64().unwrap() as u32).collect::<Vec<u32>>();
+    let proof = prove(&values_vec, &indices_u32);
     proof_to_js_array(proof)
 }
 
@@ -305,15 +312,15 @@ mod tests {
     #[test]
     pub fn test_accumulator() {
         let mut rng = rand::rng();
-        for i in 1..1000usize {
+        for i in 1..1000u32 {
             let values: Vec<Vec<u8>> = random_values(i);
 
             let h = acc(&values);
 
             // generate random number of indices
-            let num_indices = rng.random_range(1..=i);
+            let num_indices = rng.random_range(1..=i as usize);
             // let num_indices = 3;
-            let mut indices: Vec<usize> = (0..i).collect();
+            let mut indices: Vec<u32> = (0..i).collect();
             indices.shuffle(&mut rng);
             indices.truncate(num_indices);
             indices.sort(); // ensure indices are increasing
@@ -321,7 +328,7 @@ mod tests {
             // Get the values at the indices of the vector `indices`
             let proof_values: Vec<Vec<u8>> = indices
                 .iter()
-                .map(|&idx| values[idx].clone())
+                .map(|&idx| values[idx as usize].clone())
                 .collect();
 
             // Call `prove(&proof_values, &indices)` and store in `proof`
@@ -334,10 +341,10 @@ mod tests {
 
     #[test]
     pub fn test_incr_accumulator() {
-        for i in 2..1000usize {
+        for i in 2..1000u32 {
             let values: Vec<Vec<u8>> = random_values(i);
 
-            let prev_h = acc(&values[..i - 1]);
+            let prev_h = acc(&values[..(i - 1) as usize]);
             let curr_h = acc(&values);
             let proof = prove_ext(&values);
 
@@ -345,7 +352,7 @@ mod tests {
         }
     }
 
-    fn random_values(num_bytes: usize) -> Vec<Vec<u8>> {
+    fn random_values(num_bytes: u32) -> Vec<Vec<u8>> {
         let mut rng = rand::rng();
 
         (0..num_bytes)

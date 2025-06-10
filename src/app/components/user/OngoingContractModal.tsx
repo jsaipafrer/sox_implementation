@@ -16,8 +16,6 @@ import {
     sendSbFee,
     sendSvFee,
     startDispute,
-    submitSb,
-    submitSv,
 } from "@/app/lib/blockchain/optimistic";
 import {
     finishDispute,
@@ -101,11 +99,14 @@ export default function OngoingContractModal({
     const [bSponsorDeposit, setBSponsorDeposit] = useState("Loading...");
     const [vSponsorDeposit, setVSponsorDeposit] = useState("Loading...");
     const [detailsShown, setShowDetails] = useState(false);
-    const [keyInput, setKeyInput] = useState("");
+    const [keyInput, setKeyInput] = useState(localStorage.getItem(`key_${id}`));
     const [sbInput, setSbInput] = useState("");
     const [svInput, setSvInput] = useState("");
     const [commitment, setCommitment] = useState("");
     const [challengeFile, setChallengeFile] = useState<FileList | null>();
+    const [challengeBtnLabel, setChallengeLabel] = useState(
+        "Respond to challenge"
+    );
 
     useEffect(() => {
         getBasicInfo(optimistic_smart_contract, !!dispute_smart_contract).then(
@@ -145,28 +146,25 @@ export default function OngoingContractModal({
         setShowDetails(true);
     };
 
-    /*
-        enum OptimisticState {
-            WaitPayment,
-            WaitKey,
-            WaitSB,
-            WaitSBFee,
-            WaitSV,
-            WaitSVFee,
-            WaitDisputeStart,
-            InDispute,
-            End
-        }
-    */
-
     const displayButtons = () => {
         if (dispute_smart_contract) return displayDisputeButtons();
         return displayOptimisticButtons();
     };
 
+    /*
+        enum OptimisticState {
+            WaitPayment,
+            WaitKey,
+            WaitSB,
+            WaitSV,
+            WaitDisputeStart,
+            InDispute,
+            End
+        }
+    */
     const displayOptimisticButtons = () => {
         switch (state) {
-            case 0:
+            case 0: // WaitPayment
                 if (publicKey == pk_buyer)
                     return (
                         <Button
@@ -176,7 +174,7 @@ export default function OngoingContractModal({
                     );
                 break;
 
-            case 1:
+            case 1: // WaitKey
                 if (publicKey == pk_vendor)
                     return (
                         <div className="flex gap-8 justify-between w-full items-center">
@@ -195,7 +193,7 @@ export default function OngoingContractModal({
                     );
                 break;
 
-            case 2:
+            case 2: // WaitSB
                 if (publicKey == pk_buyer)
                     return (
                         <>
@@ -206,84 +204,36 @@ export default function OngoingContractModal({
                                 />
                             </div>
                             <div className="flex gap-8 justify-between w-full items-center">
-                                <input
+                                {/*<input
                                     value={sbInput}
                                     onChange={(e) => setSbInput(e.target.value)}
                                     className="w-2/3 border border-gray-300 p-2 rounded"
                                     placeholder="Sponsor public key"
-                                ></input>
+                                ></input>*/}
                                 <Button
-                                    label={`Register dispute sponsor and pay ${tip_dispute} wei`}
-                                    onClick={clickSubmitSb}
-                                    width="1/3"
+                                    label={`Post argument`}
+                                    onClick={clickBuyerPostArgument}
                                 />
                             </div>
                         </>
                     );
                 break;
 
-            case 3:
-                if (publicKey == pk_sb)
-                    return (
-                        <>
-                            <Button
-                                label="Verify buyer's argument"
-                                onClick={clickVerifyBuyerArgument}
-                            />
-                            <br />
-                            <br />
-                            <Button
-                                label={`Pay ${1000} wei`}
-                                onClick={clickSendSbFee}
-                            />
-                        </>
-                    );
-                break;
-
-            case 4:
+            case 3: // WaitSV
                 if (publicKey == pk_vendor)
                     return (
                         <div className="flex gap-8 justify-between w-full items-center">
-                            <input
+                            {/*<input
                                 value={svInput}
                                 onChange={(e) => setSvInput(e.target.value)}
                                 className="w-2/3 border border-gray-300 p-2 rounded"
                                 placeholder="Sponsor public key"
-                            ></input>
+                            ></input>*/}
                             <Button
-                                label={`Register dispute sponsor and pay ${tip_dispute} wei`}
-                                onClick={clickSubmitSv}
-                                width="1/3"
+                                label={`Post argument`}
+                                onClick={clickVendorPostArgument}
                             />
                         </div>
-                    );
-                break;
-
-            case 5:
-                if (publicKey == pk_sv)
-                    return (
-                        <>
-                            <Button
-                                label="Verify vendor's argument"
-                                onClick={clickVerifyVendorArgument}
-                            />
-                            <br />
-                            <br />
-                            <Button
-                                label={`Pay ${1000} wei`}
-                                onClick={clickSendSvFee}
-                            />
-                        </>
-                    );
-                break;
-
-            case 6:
-                if (publicKey == pk_sb || publicKey == pk_sv)
-                    return (
-                        <Button
-                            label={"Start dispute"}
-                            onClick={clickStartDispute}
-                        />
                     );
                 break;
         }
@@ -307,7 +257,11 @@ export default function OngoingContractModal({
     };
 
     const clickSendKey = async () => {
-        await sendKey(publicKey, contract.optimistic_smart_contract, keyInput);
+        await sendKey(
+            publicKey,
+            contract.optimistic_smart_contract,
+            keyInput ? keyInput : "0x"
+        );
         onClose();
         alert("key sent!");
     };
@@ -337,168 +291,110 @@ export default function OngoingContractModal({
             );
         }
 
-        const { success, decrypted_file } = check_received_ct_key(
-            ct,
-            hex_to_bytes(key),
-            item_description
-        );
-
-        if (success) {
-            if (
-                confirm(
-                    "The received file seems correct, download the decrypted file ?"
-                )
-            ) {
-                downloadFile(decrypted_file, "decrypted_file");
+        try {
+            const { success, decrypted_file } = check_received_ct_key(
+                ct,
+                hex_to_bytes(key),
+                item_description
+            );
+            if (success) {
+                if (
+                    confirm(
+                        "The received file seems correct, download the decrypted file ?"
+                    )
+                ) {
+                    downloadFile(decrypted_file, "decrypted_file");
+                }
+            } else {
+                if (
+                    confirm(
+                        "The received file does NOT seem correct, download anyway ?"
+                    )
+                ) {
+                    downloadFile(decrypted_file, "decrypted_file");
+                }
             }
-        } else {
-            if (
-                confirm(
-                    "The received file does NOT seem correct, download anyway ?"
-                )
-            ) {
-                downloadFile(decrypted_file, "decrypted_file");
-            }
+        } catch {
+            alert("Something went wrong during decryption");
         }
     };
 
-    const clickSubmitSb = async () => {
-        const ct = hex_to_bytes(
-            (
-                await (
-                    await fetch(`/api/files/${id}`, {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    })
-                ).json()
-            ).file
-        );
-        const h_circuit = localStorage.getItem(`h_circuit_${id}`)!;
-        const h_ct = localStorage.getItem(`h_ct_${id}`)!;
+    const clickBuyerPostArgument = async () => {
+        await init();
+
+        let ct: Uint8Array | undefined = undefined;
+        if (confirm("Do you want to select a file ?")) {
+            const file = await openFile();
+            if (file) ct = await fileToBytes(file);
+        }
+
+        if (!ct) {
+            ct = hex_to_bytes(
+                (
+                    await (
+                        await fetch(`/api/files/${id}`, {
+                            method: "GET",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                        })
+                    ).json()
+                ).file
+            );
+        }
 
         const argument = make_argument(ct, item_description, opening_value);
 
-        await submitSb(
-            publicKey,
-            contract.optimistic_smart_contract,
-            sbInput,
-            tip_dispute
-        );
-        await fetch("/api/disputes/register-sponsor", {
+        await fetch(`/api/arguments/buyer/${id}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                contract_id: contract.id,
-                pk_buyer_sponsor: sbInput,
                 argument: bytes_to_hex(argument),
             }),
         });
         onClose();
-        alert("Sponsor registered!");
+        alert("Argument posted!");
     };
 
-    const clickVerifyBuyerArgument = async () => {
+    const clickVendorPostArgument = async () => {
         await init();
 
-        const response = await fetch(`/api/arguments/buyer/${id}`);
-        const { argument } = await response.json();
-        const success = check_argument(hex_to_bytes(argument), commitment);
-
-        if (success) {
-            alert("Argument is valid");
-        } else {
-            alert("Argument is NOT valid!");
+        let ct: Uint8Array | undefined = undefined;
+        if (confirm("Do you want to select a file ?")) {
+            const file = await openFile();
+            if (file) ct = await fileToBytes(file);
         }
-    };
 
-    const clickSendSbFee = async () => {
-        await sendSbFee(publicKey, contract.optimistic_smart_contract, 1000); // TODO set amount
-        onClose();
-        alert("Fee sent!");
-    };
-
-    const clickSubmitSv = async () => {
-        await init();
-
-        const ct = hex_to_bytes(
-            (
-                await (
-                    await fetch(`/api/files/${id}`, {
-                        method: "GET",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    })
-                ).json()
-            ).file
-        );
-        const h_circuit = localStorage.getItem(`h_circuit_${id}`)!;
-        const h_ct = localStorage.getItem(`h_ct_${id}`)!;
+        if (!ct) {
+            ct = hex_to_bytes(
+                (
+                    await (
+                        await fetch(`/api/files/${id}`, {
+                            method: "GET",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                        })
+                    ).json()
+                ).file
+            );
+        }
 
         const argument = make_argument(ct, item_description, opening_value);
 
-        await submitSv(
-            publicKey,
-            contract.optimistic_smart_contract,
-            svInput,
-            tip_dispute
-        );
-        await fetch("/api/disputes/register-sponsor", {
+        await fetch(`/api/arguments/vendor/${id}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                contract_id: contract.id,
-                pk_vendor_sponsor: svInput,
                 argument: bytes_to_hex(argument),
             }),
         });
         onClose();
-        alert("Sponsor registered!");
-    };
-
-    const clickVerifyVendorArgument = async () => {
-        await init();
-
-        const response = await fetch(`/api/arguments/vendor/${id}`);
-        const { argument } = await response.json();
-        const success = check_argument(hex_to_bytes(argument), commitment);
-
-        if (success) {
-            alert("Argument is valid");
-        } else {
-            alert("Argument is NOT valid!");
-        }
-    };
-
-    const clickSendSvFee = async () => {
-        await sendSvFee(publicKey, contract.optimistic_smart_contract, 1000); // TODO set amount
-        onClose();
-        alert("Fee sent!");
-    };
-
-    const clickStartDispute = async () => {
-        const disputeContract = await startDispute(
-            publicKey,
-            contract.optimistic_smart_contract
-        ); // TODO manage numGates and numBlocks
-        await fetch("/api/disputes/set-contract", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                contract_id: contract.id,
-                dispute_smart_contract: disputeContract,
-            }),
-        });
-        onClose();
-        alert("Dispute started!");
+        alert("Argument posted!");
     };
 
     /*
@@ -516,15 +412,19 @@ export default function OngoingContractModal({
     const displayDisputeButtons = () => {
         switch (state) {
             case 0:
-                if (publicKey == pk_buyer)
+                if (publicKey == pk_buyer) {
+                    getChallenge(dispute_smart_contract!).then((c) =>
+                        setChallengeLabel(`Respond to challenge ${c}`)
+                    );
                     return (
                         <>
                             <Button
-                                label="Respond to challenge"
+                                label={challengeBtnLabel}
                                 onClick={clickRespondChallenge}
                             />
                         </>
                     );
+                }
                 break;
             case 1:
                 if (publicKey == pk_vendor)
@@ -574,7 +474,7 @@ export default function OngoingContractModal({
             bytes_to_hex(response)
         );
         onClose();
-        alert("Response sent");
+        alert(`Response sent for challenge ${challenge}`);
     };
 
     const clickGiveOpinion = async () => {
@@ -591,18 +491,24 @@ export default function OngoingContractModal({
         const latestResponse = await getLatestChallengeResponse(
             dispute_smart_contract!
         );
-        const opinion = computedResponse == latestResponse;
-        console.log(opinion);
+        const opinion = bytes_to_hex(computedResponse) == latestResponse;
 
         await giveOpinion(publicKey, dispute_smart_contract!, opinion);
+        if (opinion) {
+            alert("Agreed");
+        } else {
+            alert("Disagreed");
+        }
         onClose();
-        alert("Opinion sent");
     };
 
     const clickSendProofs = async () => {
+        await init();
         const { ct, circuit, evaluated_circuit } = await getLargeData();
         const challenge = await getChallenge(dispute_smart_contract!);
 
+        const h_circuit = localStorage.getItem(`h_circuit_${id}`);
+        const h_ct = localStorage.getItem(`h_ct_${id}`);
         if (state == 2) {
             const {
                 gate,
@@ -612,13 +518,15 @@ export default function OngoingContractModal({
                 proof2,
                 proof3,
                 proof_ext,
-            } = compute_proofs(circuit, evaluated_circuit, ct, challenge);
+            } = compute_proofs(
+                circuit,
+                evaluated_circuit,
+                ct,
+                Number(challenge)
+            );
 
-            const h_circuit = localStorage.getItem(`h_circuit_${id}`);
-            const h_ct = localStorage.getItem(`h_ct_${id}`);
             await submitCommitment(
-                hex_to_bytes(h_circuit!),
-                hex_to_bytes(h_ct!),
+                opening_value,
                 challenge,
                 gate,
                 values,
@@ -633,13 +541,15 @@ export default function OngoingContractModal({
             );
         } else if (state == 3) {
             const { gate, values, curr_acc, proof1, proof2, proof_ext } =
-                compute_proofs_left(circuit, evaluated_circuit, ct, challenge);
+                compute_proofs_left(
+                    circuit,
+                    evaluated_circuit,
+                    ct,
+                    Number(challenge)
+                );
 
-            const h_circuit = localStorage.getItem(`h_circuit_${id}`);
-            const h_ct = localStorage.getItem(`h_ct_${id}`);
             await submitCommitmentLeft(
-                hex_to_bytes(h_circuit!),
-                hex_to_bytes(h_ct!),
+                opening_value,
                 challenge,
                 gate,
                 values,

@@ -14,6 +14,7 @@ import { evaluateCircuit } from "../../../app/lib/circuits/evaluator";
 
 const { ethers } = hre;
 
+// TODO ADAPT THIS TO WASM
 /*
 Number of challenge-response calls:
 ======================== m = 2^1 ========================
@@ -136,7 +137,7 @@ before(async function () {
 describe("Growth of dispute complexity in terms of number of ct blocks and circuit size", function () {
     it("Only the dispute, ciphertext of 2^i blocks with only sha256", async function () {
         const i = 8;
-        for (let i = 0; i < 15; ++i) {
+        for (let i = 0; i < 10; ++i) {
             console.log(
                 `======================== m = 2^${i} ========================`
             );

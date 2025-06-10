@@ -10,9 +10,7 @@ import { UPLOADS_PATH, WASM_PATH } from "../../files/[id]/route";
 
 interface RequestBody {
     contract_id: string;
-    pk_buyer_sponsor?: string;
-    pk_vendor_sponsor?: string;
-    argument: string;
+    pk_sponsor: string;
 }
 
 export async function POST(req: Request) {
@@ -20,12 +18,42 @@ export async function POST(req: Request) {
     initSync({ module: module });
 
     const body = await req.json();
+    if (!body.contract_id) {
+        return NextResponse.json({
+            success: false,
+            error_msg: "Missing contract id",
+        });
+    }
 
-    if (body.pk_buyer_sponsor) return registerSB(body);
-    if (body.pk_vendor_sponsor) return registerSV(body);
+    if (!body.pk_sponsor) {
+        return NextResponse.json({
+            success: false,
+            error_msg: "Missing sponsor's public key",
+        });
+    }
+
+    const stmt = db.prepare(
+        "SELECT pk_buyer_sponsor, pk_vendor_sponsor FROM disputes WHERE contract_id = ?"
+    );
+    const resp = stmt.all(body.contract_id);
+
+    if (!resp) {
+        return NextResponse.json({
+            success: false,
+            error_msg: "Contract doesn't exist",
+        });
+    }
+
+    const { pk_buyer_sponsor, pk_vendor_sponsor } = resp[0] as {
+        pk_buyer_sponsor?: string;
+        pk_vendor_sponsor?: string;
+    };
+
+    if (!pk_buyer_sponsor) return registerSB(body);
+    if (!pk_vendor_sponsor) return registerSV(body);
     return NextResponse.json({
-        message: "error",
-        error_msg: "Missing sponsor",
+        success: false,
+        error_msg: "Both sponsors already registered",
     });
 }
 
@@ -38,18 +66,15 @@ async function registerSB(body: RequestBody) {
         stmt = db.prepare(
             `INSERT INTO disputes (contract_id, pk_buyer_sponsor) VALUES (?, ?)`
         );
-        stmt.run(body.contract_id, body.pk_buyer_sponsor!);
+        stmt.run(body.contract_id, body.pk_sponsor);
     } else {
         stmt = db.prepare(
             `UPDATE disputes SET pk_buyer_sponsor = ? WHERE contract_id = ?`
         );
-        stmt.run(body.pk_buyer_sponsor!, body.contract_id);
+        stmt.run(body.pk_sponsor, body.contract_id);
     }
 
-    const fileName = `argument_buyer_${body.contract_id}.bin`;
-    writeFileSync(`${UPLOADS_PATH}${fileName}`, hex_to_bytes(body.argument));
-
-    return NextResponse.json({ message: "success" });
+    return NextResponse.json({ success: true });
 }
 
 async function registerSV(body: RequestBody) {
@@ -62,16 +87,13 @@ async function registerSV(body: RequestBody) {
         stmt = db.prepare(
             `INSERT INTO disputes (contract_id, pk_vendor_sponsor) VALUES (?, ?)`
         );
-        stmt.run(body.contract_id, body.pk_vendor_sponsor!);
+        stmt.run(body.contract_id, body.pk_sponsor);
     } else {
         stmt = db.prepare(
             `UPDATE disputes SET pk_vendor_sponsor = ? WHERE contract_id = ?`
         );
-        stmt.run(body.pk_vendor_sponsor!, body.contract_id);
+        stmt.run(body.pk_sponsor, body.contract_id);
     }
 
-    const fileName = `argument_vendor_${body.contract_id}.bin`;
-    writeFileSync(`${UPLOADS_PATH}${fileName}`, hex_to_bytes(body.argument));
-
-    return NextResponse.json({ message: "success" });
+    return NextResponse.json({ success: true });
 }

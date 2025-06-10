@@ -49,6 +49,8 @@ export default function NewContractModal({
             num_blocks,
             num_gates,
         } = compute_precontract_values(fileBytes, keyBytes);
+        console.log(num_blocks);
+        console.log(num_gates);
 
         let data = {
             item_description: bytes_to_hex(description),
@@ -75,13 +77,13 @@ export default function NewContractModal({
             body: JSON.stringify(data),
         });
         const { id } = await response_raw.json();
+        const keyHex = bytes_to_hex(keyBytes);
         alert(
-            `Added new contract with ID ${id}. The encryption key is: ${bytes_to_hex(
-                keyBytes
-            )}`
+            `Added new contract with ID ${id}. The encryption key is: ${keyHex}`
         );
         localStorage.setItem(`h_circuit_${id}`, bytes_to_hex(h_circuit));
         localStorage.setItem(`h_ct_${id}`, bytes_to_hex(h_ct));
+        localStorage.setItem(`key_${id}`, keyHex);
 
         if (confirm("Do you want to save the encrypted file ?"))
             downloadFile(ct, "encrypted_file.bin");

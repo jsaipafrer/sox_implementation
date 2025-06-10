@@ -1,5 +1,6 @@
 use aes::cipher::{KeyIvInit, StreamCipher};
 use rand::RngCore;
+use crate::utils::die;
 
 type Aes128Ctr128BE = ctr::Ctr128BE<aes::Aes128>;
 
@@ -12,7 +13,7 @@ pub fn encrypt_and_prepend_iv(mut data: &mut [u8], key: &[u8]) -> Vec<u8> {
 
     let mut cipher = match Aes128Ctr128BE::new_from_slices(key, &iv) {
         Ok(c) => c,
-        Err(e) => { crate::log("Key should be 16 bytes"); panic!() }
+        Err(_) => { die("Key should be 16 bytes") }
     };
 
     cipher.apply_keystream(&mut data);
@@ -24,7 +25,6 @@ pub fn encrypt_and_prepend_iv(mut data: &mut [u8], key: &[u8]) -> Vec<u8> {
     iv
 }
 
-
 // Returns the plaintext corresponding to the ciphertext CT with AES-128 in counter mode
 // Expects the following format of ciphertext:
 //      ct = IV (16 bytes) || Enc_k(data) (variable size)
@@ -33,7 +33,7 @@ pub fn decrypt(ct: &[u8], key: &[u8]) -> Vec<u8> {
     let iv = &ct[..16];
     let mut cipher = match Aes128Ctr128BE::new_from_slices(key, &iv) {
         Ok(c) => c,
-        Err(e) => { crate::log("Key should be 16 bytes"); panic!() }
+        Err(_) => { die("Key should be 16 bytes") }
     };
     
     let mut res = ct[16..].to_vec();

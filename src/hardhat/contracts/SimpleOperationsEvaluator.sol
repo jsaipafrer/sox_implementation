@@ -22,12 +22,20 @@ library SimpleOperationsEvaluator {
             "Addition operators must be at most 16 bytes long"
         );
 
+        bytes memory left = new bytes(16);
+        for (uint i = 0; i < _data[0].length; ++i) {
+            left[15 - i] = _data[0][_data[0].length - i - 1];
+        }
+
+        bytes memory right = new bytes(16);
+        for (uint i = 0; i < _data[1].length; ++i) {
+            right[15 - i] = _data[1][_data[1].length - i - 1];
+        }
+
         unchecked {
             return
                 bytes.concat(
-                    bytes16(
-                        uint128(bytes16(_data[0])) + uint128(bytes16(_data[1]))
-                    )
+                    bytes16(uint128(bytes16(left)) + uint128(bytes16(right)))
                 );
         }
     }
@@ -44,12 +52,20 @@ library SimpleOperationsEvaluator {
             "Multiplication operators must be at most 16 bytes long"
         );
 
+        bytes memory left = new bytes(16);
+        for (uint i = 0; i < _data[0].length; ++i) {
+            left[15 - i] = _data[0][_data[0].length - i - 1];
+        }
+
+        bytes memory right = new bytes(16);
+        for (uint i = 0; i < _data[1].length; ++i) {
+            right[15 - i] = _data[1][_data[1].length - i - 1];
+        }
+
         unchecked {
             return
                 bytes.concat(
-                    bytes16(
-                        uint128(bytes16(_data[0])) * uint128(bytes16(_data[1]))
-                    )
+                    bytes16(uint128(bytes16(left)) * uint128(bytes16(right)))
                 );
         }
     }

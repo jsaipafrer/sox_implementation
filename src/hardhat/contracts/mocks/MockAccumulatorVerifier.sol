@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 library MockAccumulatorVerifier {
     function verify(
         bytes32,
-        uint256[] memory,
+        uint32[] memory,
         bytes32[] memory,
         bytes32[][] memory _proof
     ) public pure returns (bool) {
@@ -12,7 +12,7 @@ library MockAccumulatorVerifier {
     }
 
     function verifyExt(
-        uint256,
+        uint32,
         bytes32,
         bytes32,
         bytes32,

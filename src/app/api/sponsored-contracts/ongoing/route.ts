@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
             sponsor,
             commitment,
             optimistic_smart_contract,
+            opening_value,
             dispute_smart_contract,
             pk_buyer_sponsor AS pk_sb,
             pk_vendor_sponsor AS pk_sv

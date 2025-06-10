@@ -4,20 +4,30 @@ import Button from "../common/Button";
 import { useEffect, useState } from "react";
 import Modal from "../common/Modal";
 import SponsorModal from "./SponsorModal";
-import { Gate, evaluateCircuit } from "../../lib/circuits/evaluator";
-import { bytesToHex } from "../../lib/helpers";
+import init, {
+    check_argument,
+    hex_to_bytes,
+} from "@/app/lib/circuits/wasm/circuits";
+import {
+    getBasicInfo,
+    sendSbFee,
+    sendSvFee,
+} from "@/app/lib/blockchain/optimistic";
+import { downloadFile } from "@/app/lib/helpers";
 
 type Dispute = {
     contract_id: number;
+    optimistic_smart_contract: string;
     tip_dispute: number;
-    proof_path: string;
+    pk_buyer_sponsor?: string;
+    pk_vendor_sponsor?: string;
 };
 
 export default function DisputeListView() {
     const [modalProofShown, showModalProof] = useState(false);
     const [modalSponsorShown, showModalSponsor] = useState(false);
     const [disputes, setDisputes] = useState<Dispute[]>([]);
-    const [selectedDispute, setSelectedDispute] = useState(-1);
+    const [selectedDispute, setSelectedDispute] = useState<Dispute>();
 
     const fetchDisputes = () => {
         fetch("/api/disputes")
@@ -42,17 +52,119 @@ export default function DisputeListView() {
     }, []);
 
     const handleSponsorConfirmation = async (pk: string) => {
+        if (!selectedDispute) console.log("something went wrong");
+
         await fetch("/api/disputes/register-sponsor", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                contract_id: selectedDispute,
+                contract_id: selectedDispute!.contract_id,
                 pk_sponsor: pk,
             }),
         });
-        alert(`Sponsored dispute ${selectedDispute}`);
+
+        const isVendor = !!selectedDispute!.pk_buyer_sponsor;
+        const sendFee = isVendor ? sendSvFee : sendSbFee;
+        const disputeContract = await sendFee(
+            pk,
+            selectedDispute!.optimistic_smart_contract
+        );
+
+        if (isVendor) {
+            await fetch("/api/disputes/set-contract", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    contract_id: selectedDispute!.contract_id,
+                    dispute_smart_contract: disputeContract,
+                }),
+            });
+        }
+
+        alert(
+            `Sponsored dispute ${selectedDispute!.contract_id}!${
+                isVendor ? ` Deployed smart contract ${disputeContract}` : ""
+            }`
+        );
+    };
+
+    const handleClickCheckArgument = async () => {
+        await init();
+
+        if (!selectedDispute) {
+            alert("something wrong happened!");
+            showModalProof(false);
+        }
+
+        const isVendor = !!selectedDispute!.pk_buyer_sponsor;
+        let endpoint = "/api/arguments/buyer";
+        if (isVendor) {
+            endpoint = "/api/arguments/vendor";
+        }
+
+        const { argument: argument_hex, description } = await (
+            await fetch(`${endpoint}/${selectedDispute!.contract_id}`)
+        ).json();
+
+        const { key, commitment } = (await getBasicInfo(
+            selectedDispute!.optimistic_smart_contract
+        ))!;
+
+        const argument = hex_to_bytes(argument_hex);
+        const result = check_argument(argument, commitment, description, key);
+
+        // yandere dev core
+        if (result.error) {
+            alert(`An error occurred: ${result.error}`);
+        } else if (!result.is_valid) {
+            alert(
+                `!!! Argument in NOT valid !!!\nThe ${
+                    isVendor ? "vendor" : "buyer"
+                } may have lied`
+            );
+        } else if (result.supports_buyer) {
+            alert(
+                isVendor
+                    ? "!!!Vendor posted an argument that DOES NOT SUPPORT them!!!"
+                    : "Buyer posted an argument that supports them"
+            );
+        } else {
+            alert(
+                isVendor
+                    ? "Vendor posted an argument that supports them"
+                    : "!!!Buyer posted an argument that DOES NOT SUPPORT them!!!"
+            );
+        }
+        showModalProof(false);
+    };
+
+    const handleClickDownloadArgument = async () => {
+        await init();
+
+        if (!selectedDispute) {
+            alert("something wrong happened!");
+            showModalProof(false);
+        }
+
+        const isVendor = !!selectedDispute!.pk_buyer_sponsor;
+        let endpoint = "/api/arguments/buyer";
+        if (isVendor) {
+            endpoint = "/api/arguments/vendor";
+        }
+
+        const { argument: argument_hex } = await (
+            await fetch(`${endpoint}/${selectedDispute!.contract_id}`)
+        ).json();
+        downloadFile(
+            hex_to_bytes(argument_hex),
+            `${selectedDispute!.contract_id}_argument_${
+                isVendor ? "vendor" : "buyer"
+            }.bin`
+        );
     };
 
     return (
@@ -77,8 +189,11 @@ export default function DisputeListView() {
                             <td className="p-2 w-1/4">{d.tip_dispute}</td>
                             <td className="p-2 text-center w-1/4">
                                 <Button
-                                    label="Check proof"
-                                    onClick={() => showModalProof(true)}
+                                    label="Check argument"
+                                    onClick={() => {
+                                        setSelectedDispute(d);
+                                        showModalProof(true);
+                                    }}
                                     width="95/100"
                                 />
                             </td>
@@ -86,7 +201,7 @@ export default function DisputeListView() {
                                 <Button
                                     label="Sponsor"
                                     onClick={() => {
-                                        setSelectedDispute(d.contract_id);
+                                        setSelectedDispute(d);
                                         showModalSponsor(true);
                                     }}
                                     width="95/100"
@@ -100,123 +215,19 @@ export default function DisputeListView() {
             {modalProofShown && (
                 <Modal
                     onClose={() => showModalProof(false)}
-                    title="Check proof"
+                    title="Check argument"
                 >
                     <div className="flex gap-8 justify-between items-center">
                         <Button
                             label="Check here"
-                            onClick={async () => {
-                                // TODO
-                                const input = new Uint8Array([
-                                    76, 111, 114, 101, 109, 32, 105, 112, 115,
-                                    117, 109, 32, 100, 111, 108, 111, 114, 32,
-                                    115, 105, 116, 32, 97, 109, 101, 116, 44,
-                                    32, 99, 111, 110, 115, 101, 99, 116, 101,
-                                    116, 117, 114, 32, 97, 100, 105, 112, 105,
-                                    115, 99, 105, 110, 103, 32, 101, 108, 105,
-                                    116, 44, 32, 115, 101, 100, 32, 100, 111,
-                                    32, 101, 105, 117, 115, 109, 111, 100, 32,
-                                    116, 101, 109, 112, 111, 114, 32, 105, 110,
-                                    99, 105, 100, 105, 100, 117, 110, 116, 32,
-                                    117, 116, 32, 108, 97, 98, 111, 114, 101,
-                                    32, 101, 116, 32, 100, 111, 108, 111, 114,
-                                    101, 32, 109, 97, 103, 110, 97, 32, 97, 108,
-                                    105, 113, 117, 97, 46, 32, 85, 116, 32, 101,
-                                    110, 105, 109, 32, 97, 100, 32, 109, 105,
-                                    110, 105, 109, 32, 118, 101, 110, 105, 97,
-                                    109, 44, 32, 113, 117, 105, 115, 32, 110,
-                                    111, 115, 116, 114, 117, 100, 32, 101, 120,
-                                    101, 114, 99, 105, 116, 97, 116, 105, 111,
-                                    110, 32, 117, 108, 108, 97, 109, 99, 111,
-                                    32, 108, 97, 98, 111, 114, 105, 115, 32,
-                                    110, 105, 115, 105, 32, 117, 116, 32, 97,
-                                    108, 105, 113, 117, 105, 112, 32, 101, 120,
-                                    32, 101, 97, 32, 99, 111, 109, 109, 111,
-                                    100, 111, 32, 99, 111, 110, 115, 101, 113,
-                                    117, 97, 116, 46, 32, 68, 117, 105, 115, 32,
-                                    97, 117, 116, 101, 32, 105, 114, 117, 114,
-                                    101, 32, 100, 111, 108, 111, 114, 32, 105,
-                                    110, 32, 114, 101, 112, 114, 101, 104, 101,
-                                    110, 100, 101, 114, 105, 116, 32, 105, 110,
-                                    32, 118, 111, 108, 117, 112, 116, 97, 116,
-                                    101, 32, 118, 101, 108, 105, 116, 32, 101,
-                                    115, 115, 101, 32, 99, 105, 108, 108, 117,
-                                    109, 32, 100, 111, 108, 111, 114, 101, 32,
-                                    101, 117, 32, 102, 117, 103, 105, 97, 116,
-                                    32, 110, 117, 108, 108, 97, 32, 112, 97,
-                                    114, 105, 97, 116, 117, 114, 46, 32, 69,
-                                    120, 99, 101, 112, 116, 101, 117, 114, 32,
-                                    115, 105, 110, 116, 32, 111, 99, 99, 97,
-                                    101, 99, 97, 116, 32, 99, 117, 112, 105,
-                                    100, 97, 116, 97, 116, 32, 110, 111, 110,
-                                    32, 112, 114, 111, 105, 100, 101, 110, 116,
-                                    44, 32, 115, 117, 110, 116, 32, 105, 110,
-                                    32, 99, 117, 108, 112, 97, 32, 113, 117,
-                                    105, 32, 111, 102, 102, 105, 99, 105, 97,
-                                    32, 100, 101, 115, 101, 114, 117, 110, 116,
-                                    32, 109, 111, 108, 108, 105, 116, 32, 97,
-                                    110, 105, 109, 32, 105, 100, 32, 101, 115,
-                                    116, 32, 108, 97, 98, 111, 114, 117, 109,
-                                    46,
-                                ]);
-                                const circuit = [
-                                    [-1, []] as Gate,
-                                    [-1, []] as Gate,
-                                    [-1, []] as Gate,
-                                    [-1, []] as Gate,
-                                    [-1, []] as Gate,
-                                    [-1, []] as Gate,
-                                    [-1, []] as Gate,
-                                    [0, [0]] as Gate,
-                                    [0, [7, 1]] as Gate,
-                                    [0, [8, 2]] as Gate,
-                                    [0, [9, 3]] as Gate,
-                                    [0, [10, 4]] as Gate,
-                                    [0, [11, 5]] as Gate,
-                                    [0, [12, 6]] as Gate,
-                                ];
-                                evaluateCircuit(
-                                    input,
-                                    64,
-                                    circuit,
-                                    new Uint8Array(),
-                                    0
-                                ).then((res) => {
-                                    document.getElementById(
-                                        "proof_check_result"
-                                    )!.textContent = bytesToHex(res);
-                                });
-                                // Metamask shit, only if time allows
-                                // const client = createWalletClient({
-                                //     chain: anvil,
-                                //     transport: custom(window.ethereum!),
-                                // });
-
-                                // const [address] = await client.getAddresses();
-
-                                // const signature = await client.signMessage({
-                                //     account: address,
-                                //     message: "hello world",
-                                // });
-
-                                // document.getElementById(
-                                //     "proof_check_result"
-                                // )!.textContent = signature;
-                            }}
-                            width="1/2"
+                            onClick={handleClickCheckArgument}
                         />
-                        <p
-                            className="block w-1/2 text-center"
-                            id="proof_check_result"
-                        >
-                            hello
-                        </p>
                     </div>
                     <br />
                     <div className="flex gap-8 justify-between items-center">
                         <Button
-                            label="Download proof"
-                            onClick={() => alert("downloaded proof")}
+                            label="Download argument"
+                            onClick={handleClickDownloadArgument}
                             width="full"
                         />
                     </div>

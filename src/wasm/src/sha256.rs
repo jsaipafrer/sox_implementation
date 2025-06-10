@@ -1,9 +1,9 @@
 use js_sys::Uint8Array;
-use std::u64;
 use sha2::{Digest, Sha256};
 use sha2_compress::{Sha2, SHA256};
 use wasm_bindgen::prelude::wasm_bindgen;
 use crate::accumulator::uint8_array_to_vec_u8;
+use crate::utils::{die};
 
 pub fn u8_array_to_u32_array(vec: &[u8]) -> [u32; 8] {
     if vec.len() != 32 {
@@ -13,7 +13,7 @@ pub fn u8_array_to_u32_array(vec: &[u8]) -> [u32; 8] {
     let mut res: [u32; 8] = [0; 8];
 
     for i in 0..8 {
-        res[i as usize] = ((vec[i * 4] as u32) << 24)
+        res[i] = ((vec[i * 4] as u32) << 24)
             | ((vec[i * 4 + 1] as u32) << 16)
             | ((vec[i * 4 + 2] as u32) << 8)
             | (vec[i * 4 + 3] as u32);
@@ -66,18 +66,27 @@ fn sha256_padding(last_block: &Vec<u8>, data_len: u64) -> Vec<u8> {
 }
 
 /*
-    prev_hash
-    block
-    data_len
+    prev_hash (32 bytes)
+    block (variable length)
+    data_len (4 bytes)
  */
 pub fn sha256_compress_final(data: &Vec<&Vec<u8>>) -> Vec<u8> {
+    if data.len() != 2 && data.len() != 3 {
+        let msg = format!("Input data for the final compression must have exactly 2 or 3 elements. Got {}", data.len());
+        die(&msg);
+    }
+
+    if data.len() == 3 && data[0].len() != 32 {
+        die(&format!("Previous hash on the final compression must be 32 bytes long. Got {}", data[0].len()));
+    }
+
+    if data[data.len() - 1].len() != 8 {
+        die(&format!("Data length on the final compression must be 8 bytes long. Got {}", data[data.len() - 1].len()));
+    }
+
     let prev_hash = if data.len() == 2 { SHA256 } else { u8_array_to_u32_array(data[0]) };
-    let curr_block = if data.len() == 2 { data[0] } else { data[1] };
-    let data_len = if data.len() == 2 {
-        u64::from_be_bytes(data[1].clone().try_into().unwrap())
-    } else {
-        u64::from_be_bytes(data[2].clone().try_into().unwrap())
-    };
+    let curr_block = data[data.len() - 2];
+    let data_len = u64::from_be_bytes(data[data.len() - 1].clone().try_into().unwrap());
 
     let padded = sha256_padding(&curr_block, data_len);
     let h1 = u8_array_to_u32_array(&padded[..32]);

@@ -141,30 +141,15 @@ describe("End-to-end", function () {
             // vendor sends key
             await optimisticContract.connect(vendor).sendKey(key);
 
-            // buyer registers its dispute sponsor
-            await optimisticContract
-                .connect(buyer)
-                .registerBuyerDisputeSponsor(buyerDisputeSponsor);
-
             // sb deposits dispute fees
             await optimisticContract
                 .connect(buyerDisputeSponsor)
                 .sendBuyerDisputeSponsorFee({ value: 10n + disputeTip });
 
-            // vendor registers its dispute sponsor
-            await optimisticContract
-                .connect(vendor)
-                .registerVendorDisputeSponsor(vendorDisputeSponsor);
-
-            // sv deposits dispute fees
+            // sv deposits dispute fees and starts the dispute
             await optimisticContract
                 .connect(vendorDisputeSponsor)
                 .sendVendorDisputeSponsorFee({ value: 10n + disputeTip });
-
-            // sb starts the dispute
-            await optimisticContract
-                .connect(buyerDisputeSponsor)
-                .startDispute();
 
             const disputeContractAddr =
                 await optimisticContract.disputeContract();

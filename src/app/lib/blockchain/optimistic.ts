@@ -1,6 +1,6 @@
 import { abi as oAbi, bytecode } from "./contracts/OptimisticSOX.json";
 import { abi as dAbi } from "./contracts/DisputeSOX.json";
-import { PK_SK_MAP, PROVIDER, SPONSOR_WALLET } from "./config";
+import { PK_SK_MAP, PROVIDER } from "./config";
 import {
     Contract,
     ContractFactory,
@@ -17,12 +17,19 @@ export async function deployOptimisticContract(
     disputeTip: number,
     timeoutIncrement: number,
     commitment: string,
+    numBlocks: number,
     numGates: number,
-    numBlocks: number
+    sponsorAddr: string
 ): Promise<string> {
     const factory = new ContractFactory(oAbi, bytecode);
+
+    const privateKey = PK_SK_MAP.get(sponsorAddr);
+    if (!privateKey) return "ERROR";
+
+    const wallet = new Wallet(privateKey, PROVIDER);
+
     const contract = await factory
-        .connect(SPONSOR_WALLET)
+        .connect(wallet)
         .deploy(
             pkBuyer,
             pkVendor,
@@ -31,8 +38,8 @@ export async function deployOptimisticContract(
             disputeTip,
             timeoutIncrement,
             commitment,
-            numGates,
             numBlocks,
+            numGates,
             { value: parseEther("1") }
         );
     await contract.waitForDeployment();
@@ -71,6 +78,7 @@ export async function getDetails(contractAddr: string) {
     if (!isAddress(contractAddr)) return;
     const contract = new Contract(contractAddr, oAbi, PROVIDER);
 
+    console.log(await contract.currState());
     return {
         state: await contract.currState(),
         key: await contract.key(),
@@ -120,28 +128,7 @@ export async function sendKey(
     return await (contract.connect(wallet) as Contract).sendKey(key);
 }
 
-export async function submitSb(
-    buyerAddr: string,
-    contractAddr: string,
-    sbAddr: string,
-    tip: number
-) {
-    const contract = new Contract(contractAddr, oAbi, PROVIDER);
-    const privateKey = PK_SK_MAP.get(buyerAddr);
-    if (!privateKey) return;
-
-    const wallet = new Wallet(privateKey, PROVIDER);
-    await (contract.connect(wallet) as Contract).registerBuyerDisputeSponsor(
-        sbAddr,
-        { value: BigInt(tip) }
-    );
-}
-
-export async function sendSbFee(
-    sbAddr: string,
-    contractAddr: string,
-    amount: number
-) {
+export async function sendSbFee(sbAddr: string, contractAddr: string) {
     const contract = new Contract(contractAddr, oAbi, PROVIDER);
     const privateKey = PK_SK_MAP.get(sbAddr);
     if (!privateKey) return;
@@ -149,39 +136,21 @@ export async function sendSbFee(
     const wallet = new Wallet(privateKey, PROVIDER);
     return await (
         contract.connect(wallet) as Contract
-    ).sendBuyerDisputeSponsorFee({ value: BigInt(amount) });
+    ).sendBuyerDisputeSponsorFee({ value: BigInt(100000n) }); // TODO SET AMOUNT
 }
 
-export async function submitSv(
-    vendorAddr: string,
-    contractAddr: string,
-    svAddr: string,
-    tip: number
-) {
-    const contract = new Contract(contractAddr, oAbi, PROVIDER);
-    const privateKey = PK_SK_MAP.get(vendorAddr);
-    if (!privateKey) return;
-
-    const wallet = new Wallet(privateKey, PROVIDER);
-    await (contract.connect(wallet) as Contract).registerVendorDisputeSponsor(
-        svAddr,
-        { value: BigInt(tip) }
-    );
-}
-
-export async function sendSvFee(
-    svAddr: string,
-    contractAddr: string,
-    amount: number
-) {
+export async function sendSvFee(svAddr: string, contractAddr: string) {
     const contract = new Contract(contractAddr, oAbi, PROVIDER);
     const privateKey = PK_SK_MAP.get(svAddr);
     if (!privateKey) return;
 
+    console.log(privateKey);
     const wallet = new Wallet(privateKey, PROVIDER);
-    return await (
-        contract.connect(wallet) as Contract
-    ).sendVendorDisputeSponsorFee({ value: BigInt(amount) });
+    await (contract.connect(wallet) as Contract).sendVendorDisputeSponsorFee({
+        value: BigInt(100000n),
+    }); // TODO SET AMOUNT
+
+    return await contract.disputeContract();
 }
 
 export async function startDispute(sponsorAddr: string, contractAddr: string) {

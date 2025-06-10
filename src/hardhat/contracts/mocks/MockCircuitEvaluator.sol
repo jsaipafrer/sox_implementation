@@ -7,9 +7,9 @@ struct Instruction {
 
 library MockCircuitEvaluator {
     function evaluateGate(
-        uint[] calldata,
+        uint32[] calldata,
         bytes[] memory,
-        uint _version
+        uint32 _version
     ) public pure returns (bytes memory) {
         return new bytes(_version);
     }

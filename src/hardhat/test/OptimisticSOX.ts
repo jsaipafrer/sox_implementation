@@ -100,10 +100,7 @@ describe("OptimisticSOX", function () {
             WaitPayment,
             WaitKey,
             WaitSB,
-            WaitSBFee,
             WaitSV,
-            WaitSVFee,
-            WaitDisputeStart,
             InDispute,
             End
         */
@@ -121,15 +118,6 @@ describe("OptimisticSOX", function () {
 
         if (step) {
             await contract
-                .connect(buyer)
-                .registerBuyerDisputeSponsor(buyerDisputeSponsor.address, {
-                    value: disputeTip,
-                });
-            step--;
-        }
-
-        if (step) {
-            await contract
                 .connect(buyerDisputeSponsor)
                 .sendBuyerDisputeSponsorFee({ value: 10n + disputeTip });
             step--;
@@ -137,22 +125,8 @@ describe("OptimisticSOX", function () {
 
         if (step) {
             await contract
-                .connect(vendor)
-                .registerVendorDisputeSponsor(vendorDisputeSponsor.address, {
-                    value: disputeTip,
-                });
-            step--;
-        }
-
-        if (step) {
-            await contract
                 .connect(vendorDisputeSponsor)
                 .sendVendorDisputeSponsorFee({ value: 10n + disputeTip });
-            step--;
-        }
-
-        if (step) {
-            await contract.connect(buyerDisputeSponsor).startDispute();
             step--;
         }
 
@@ -445,6 +419,7 @@ describe("OptimisticSOX", function () {
         });
 
         it("Should revert if called when contract is not in WaitKey state", async function () {
+            // TODO
             // const {
             //     contract,
             //     sponsorAmount,
@@ -476,72 +451,8 @@ describe("OptimisticSOX", function () {
         });
     });
 
-    describe("registerBuyerDisputeSponsor", () => {
-        it("Should register buyer dispute sponsor correctly and advance state", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                2
-            );
-
-            await expect(
-                contract
-                    .connect(buyer)
-                    .registerBuyerDisputeSponsor(buyerDisputeSponsor.address)
-            ).not.to.be.reverted;
-            expect(await contract.currState()).to.equal(3); // WaitSBFee
-            expect(await contract.buyerDisputeSponsor()).to.equal(
-                buyerDisputeSponsor.address
-            );
-        });
-
-        it("Should revert if caller is not buyer", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                2
-            );
-
-            await expect(
-                contract
-                    .connect(vendor)
-                    .registerBuyerDisputeSponsor(buyerDisputeSponsor.address)
-            ).to.be.reverted;
-        });
-    });
-
     describe("sendBuyerDisputeSponsorFee", () => {
-        it("Should accept dispute fee + completion tip and advance state", async () => {
+        it("Should accept dispute fee + completion tip, save the sponsor's address and advance state", async () => {
             const {
                 contract,
                 sponsorAmount,
@@ -560,7 +471,7 @@ describe("OptimisticSOX", function () {
                     disputeTip,
                     timeoutIncrement,
                 },
-                3
+                2
             );
 
             await expect(
@@ -568,41 +479,15 @@ describe("OptimisticSOX", function () {
                     .connect(buyerDisputeSponsor)
                     .sendBuyerDisputeSponsorFee({ value: 10n + disputeTip }) // DISPUTE_FEES dummy value
             ).not.to.be.reverted;
-            expect(await contract.currState()).to.equal(4); // WaitSV
+            expect(await contract.currState()).to.equal(3); // WaitSV
 
             expect(await contract.sbDeposit()).to.equal(10n + disputeTip);
-        });
-
-        it("Should revert if caller not buyerDisputeSponsor", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                3
+            expect(await contract.buyerDisputeSponsor()).to.equal(
+                buyerDisputeSponsor.address
             );
-
-            await expect(
-                contract
-                    .connect(buyer)
-                    .sendBuyerDisputeSponsorFee({ value: 10n + disputeTip })
-            ).to.be.reverted;
         });
 
-        it("Should revert if deposited amount less than DISPUTE_FEES", async () => {
+        it("Should revert if deposited amount less than DISPUTE_FEES + tip", async () => {
             const {
                 contract,
                 sponsorAmount,
@@ -621,7 +506,7 @@ describe("OptimisticSOX", function () {
                     disputeTip,
                     timeoutIncrement,
                 },
-                3
+                2
             );
 
             await expect(
@@ -634,74 +519,8 @@ describe("OptimisticSOX", function () {
         });
     });
 
-    describe("registerVendorDisputeSponsor", () => {
-        it("Should register vendor dispute sponsor and advance state", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                4
-            );
-
-            await expect(
-                contract
-                    .connect(vendor)
-                    .registerVendorDisputeSponsor(vendorDisputeSponsor.address)
-            ).not.to.be.reverted;
-
-            expect(await contract.currState()).to.equal(5); // WaitSVFee
-
-            expect(await contract.vendorDisputeSponsor()).to.equal(
-                vendorDisputeSponsor.address
-            );
-        });
-
-        it("Should revert if caller is not vendor", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                4
-            );
-
-            await expect(
-                contract
-                    .connect(buyer)
-                    .registerVendorDisputeSponsor(vendorDisputeSponsor.address)
-            ).to.be.reverted;
-        });
-    });
-
     describe("sendVendorDisputeSponsorFee", () => {
-        it("Should accept vendor dispute fee and advance state", async () => {
+        it("Should accept vendor dispute fee + tip, save the sponsor's address, change state and deploy the dispute smart contract", async () => {
             const {
                 contract,
                 sponsorAmount,
@@ -720,47 +539,22 @@ describe("OptimisticSOX", function () {
                     disputeTip,
                     timeoutIncrement,
                 },
-                5
+                3
             );
 
             await expect(
                 contract
                     .connect(vendorDisputeSponsor)
-                    .sendVendorDisputeSponsorFee({ value: 10n + disputeTip }) // DISPUTE_FEES dummy
+                    .sendVendorDisputeSponsorFee({ value: 10n + disputeTip })
             ).not.to.be.reverted;
 
-            expect(await contract.currState()).to.equal(6); // WaitDisputeStart
+            expect(await contract.currState()).to.equal(4); // WaitDisputeStart
 
             expect(await contract.svDeposit()).to.equal(10n + disputeTip);
-        });
-
-        it("Should revert if caller not vendorDisputeSponsor", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                5
+            expect(await contract.vendorDisputeSponsor()).to.equal(
+                vendorDisputeSponsor.address
             );
-
-            await expect(
-                contract
-                    .connect(vendor)
-                    .sendVendorDisputeSponsorFee({ value: 10n + disputeTip })
-            ).to.be.reverted;
+            expect(await contract.disputeContract()).to.not.equal(ZeroAddress);
         });
 
         it("Should revert if value less than DISPUTE_FEES", async () => {
@@ -782,7 +576,7 @@ describe("OptimisticSOX", function () {
                     disputeTip,
                     timeoutIncrement,
                 },
-                5
+                3
             );
 
             await expect(
@@ -791,85 +585,6 @@ describe("OptimisticSOX", function () {
                     .sendVendorDisputeSponsorFee({ value: 9n + disputeTip })
             ).to.be.revertedWith(
                 "Not enough money deposited to cover dispute fees + tip"
-            );
-        });
-    });
-
-    describe("startDispute", () => {
-        it("Should start dispute and update state", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                6
-            );
-
-            await expect(contract.connect(buyerDisputeSponsor).startDispute())
-                .not.to.be.reverted;
-
-            expect(await contract.currState()).to.equal(7); // InDispute
-
-            expect(await contract.disputeContract()).to.not.equal(ZeroAddress);
-        });
-
-        it("Should revert if called by non dispute sponsor", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            await fastForward(
-                {
-                    contract,
-                    sponsorAmount,
-                    agreedPrice,
-                    completionTip,
-                    disputeTip,
-                    timeoutIncrement,
-                },
-                6
-            );
-
-            await expect(
-                contract.connect(buyer).startDispute()
-            ).to.be.revertedWith(
-                "Only a dispute sponsor can start the dispute"
-            );
-        });
-
-        it("Should revert if contract not in WaitDisputeStart", async () => {
-            const {
-                contract,
-                sponsorAmount,
-                agreedPrice,
-                completionTip,
-                disputeTip,
-                timeoutIncrement,
-            } = await loadFixture(deployContractCorrect);
-
-            // Current state will be WaitPayment so startDispute should revert
-            await expect(
-                contract.connect(buyerDisputeSponsor).startDispute()
-            ).to.be.revertedWith(
-                "Contract is not waiting for a dispute to start"
             );
         });
     });
@@ -934,7 +649,7 @@ describe("OptimisticSOX", function () {
                     disputeTip,
                     timeoutIncrement,
                 },
-                7
+                4
             );
 
             await expect(contract.connect(buyerDisputeSponsor).endDispute()).to

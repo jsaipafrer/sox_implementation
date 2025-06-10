@@ -7,10 +7,11 @@ import { useEffect, useState } from "react";
 import NewDisputeModal from "../components/user/NewDisputeModal";
 import SearchContractModal from "../components/user/SearchContractModal";
 import NewContractModal from "../components/user/NewContractModal";
-import FormTextField from "../components/common/FormTextField";
 import UnsponsoredContractsListView from "../components/user/UnsponsoredContractsListView";
 import NonAcceptedPrecontractsListView from "../components/user/NonAcceptedPrecontractsListView";
 import { getBalance } from "../lib/blockchain/common";
+import FormSelect from "../components/common/FormSelect";
+import { ALL_PUBLIC_KEYS } from "../lib/blockchain/config";
 
 export default function Home() {
     const router = useRouter();
@@ -19,9 +20,7 @@ export default function Home() {
     const [modalNewDisputeShown, showModalNewDispute] = useState(false);
     const [modalSearchContractShown, showModalSearchContract] = useState(false);
     const [isLoggedIn, setLoggedIn] = useState(false);
-    const [publicKey, setPublicKey] = useState(
-        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
-    );
+    const [publicKey, setPublicKey] = useState(ALL_PUBLIC_KEYS[0]);
     const [balance, setBalance] = useState("Loading...");
 
     const logIn = async () => {
@@ -60,16 +59,20 @@ export default function Home() {
                 />
             </div>
 
-            <FormTextField
-                id="user-public-key"
-                type="text"
-                value={publicKey}
-                onChange={setPublicKey}
-            >
-                Public key
-            </FormTextField>
-            <br />
-            <Button onClick={logIn} label="Log in" />
+            {!isLoggedIn && (
+                <>
+                    <FormSelect
+                        id="user-public-key"
+                        value={publicKey}
+                        onChange={setPublicKey}
+                        options={ALL_PUBLIC_KEYS}
+                    >
+                        Public key
+                    </FormSelect>
+                    <br />
+                    <Button onClick={logIn} label="Log in" />
+                </>
+            )}
 
             {isLoggedIn && (
                 <>
@@ -87,12 +90,8 @@ export default function Home() {
                             onClick={() => showModalNewContract(true)}
                         />
                         <Button
-                            label="Search pre-contract"
-                            onClick={() => showModalSearchContract(true)}
-                        />
-                        <Button
-                            label="+ New dispute"
-                            onClick={() => showModalNewDispute(true)}
+                            label="Log out"
+                            onClick={() => setLoggedIn(false)}
                         />
                     </div>
 

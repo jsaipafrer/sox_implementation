@@ -1,13 +1,6 @@
-use js_sys::Uint8Array;
 use rand::RngCore;
 use sha3::{Digest, Keccak256};
 use wasm_bindgen::prelude::wasm_bindgen;
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 #[wasm_bindgen]
 #[derive(Clone)]

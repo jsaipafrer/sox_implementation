@@ -52,6 +52,7 @@ export default function SponsorContractsListView() {
             }
         ).then((res) => res.json());
 
+        console.log(contractInfo);
         const contractAddress = await deployOptimisticContract(
             contractInfo.pk_buyer,
             contractInfo.pk_vendor,
@@ -61,7 +62,8 @@ export default function SponsorContractsListView() {
             contractInfo.timeout_delay as number,
             contractInfo.commitment,
             contractInfo.num_blocks as number,
-            contractInfo.num_gates as number
+            contractInfo.num_gates as number,
+            pkSponsor
         );
 
         await fetch(`/api/sponsored-contracts/${selectedContract}`, {
@@ -77,7 +79,7 @@ export default function SponsorContractsListView() {
         setIsDeploying(false);
         alert(
             `Sponsored contract ${selectedContract}!
-Deployed contract at address ${contractAddress}`
+        Deployed contract at address ${contractAddress}`
         );
     };
 

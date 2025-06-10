@@ -5,8 +5,8 @@ import {DisputeSOX} from "./DisputeSOX.sol";
 
 library DisputeDeployer {
     function deployDispute(
-        uint256 _numBlocks,
-        uint256 _numGates,
+        uint32 _numBlocks,
+        uint32 _numGates,
         bytes32 _commitment
     ) public returns (address) {
         return

@@ -32,21 +32,15 @@ export type Contract = {
     WaitPayment,
     WaitKey,
     WaitSB,
-    WaitSBFee,
     WaitSV,
-    WaitSVFee,
-    WaitDisputeStart,
     InDispute,
     End
 */
 export const OPTIMISTIC_STATES = [
     "Waiting for buyer payment",
     "Waiting for vendor key",
-    "Key available. Waiting for buyer dispute sponsor",
-    "Waiting for buyer dispute sponsor's fee",
+    "Key available",
     "Waiting for vendor dispute sponsor",
-    "Waiting for vendor dispute sponsor's fee",
-    "Waiting for dispute to start",
     "In dispute",
     "End",
 ];

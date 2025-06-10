@@ -27,7 +27,7 @@ export default function Home() {
 
             <div className="flex gap-8 my-8">
                 <SponsorContractsListView />
-                {/* <DisputeListView /> */}
+                <DisputeListView />
             </div>
         </main>
     );

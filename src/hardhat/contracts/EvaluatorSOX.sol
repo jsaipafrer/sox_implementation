@@ -30,9 +30,9 @@ library CircuitEvaluator {
     }
 
     function evaluateGate(
-        uint[] calldata _gate, // == [op, s_1, ..., s_a]
+        uint32[] calldata _gate, // == [op, s_1, ..., s_a]
         bytes[] memory _data, // == [v_1, ..., v_a]
-        uint _version
+        uint32 _version
     ) public pure returns (bytes memory) {
         Instruction[8][1] memory VERSION_INSTRUCTIONS = getInstructionSet();
         require(

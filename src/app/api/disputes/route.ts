@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
     const stmt = db.prepare(
-        `SELECT contract_id, tip_dispute, buyer_proof_path 
+        `SELECT contract_id, tip_dispute, pk_buyer_sponsor, pk_vendor_sponsor, optimistic_smart_contract 
         FROM disputes 
         JOIN contracts 
         ON disputes.contract_id = contracts.id

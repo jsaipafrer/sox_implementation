@@ -6,7 +6,7 @@ import {AccumulatorVerifier} from "../AccumulatorSOX.sol";
 contract TestAccumulatorVerifier {
     function verify(
         bytes32 root,
-        uint256[] memory indices,
+        uint32[] memory indices,
         bytes32[] memory valuesKeccak,
         bytes32[][] memory proof
     ) external pure returns (bool) {
@@ -14,7 +14,7 @@ contract TestAccumulatorVerifier {
     }
 
     function verifyExt(
-        uint256 i,
+        uint32 i,
         bytes32 prevRoot,
         bytes32 currRoot,
         bytes32 addedValKeccak,

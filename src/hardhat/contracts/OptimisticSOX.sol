@@ -10,10 +10,7 @@ enum OptimisticState {
     WaitPayment,
     WaitKey,
     WaitSB,
-    WaitSBFee,
     WaitSV,
-    WaitSVFee,
-    WaitDisputeStart,
     InDispute,
     End
 }
@@ -60,8 +57,8 @@ contract OptimisticSOX is IOptimisticSOX {
     uint256 public disputeTip;
     uint256 public timeoutIncrement;
     bytes32 public commitment;
-    uint256 public numGates;
-    uint256 public numBlocks;
+    uint32 public numGates;
+    uint32 public numBlocks;
 
     // Money states
     uint256 public sponsorDeposit;
@@ -97,8 +94,8 @@ contract OptimisticSOX is IOptimisticSOX {
         uint256 _disputeTip,
         uint256 _timeoutIncrement,
         bytes32 _commitment,
-        uint256 _numGates,
-        uint256 _numBlocks
+        uint32 _numBlocks,
+        uint32 _numGates
     ) payable {
         require(msg.value >= SPONSOR_FEES, "Not enough money to cover fees");
         sponsorDeposit = msg.value;
@@ -110,8 +107,8 @@ contract OptimisticSOX is IOptimisticSOX {
         disputeTip = _disputeTip;
         timeoutIncrement = _timeoutIncrement;
         commitment = _commitment;
-        numGates = _numGates;
         numBlocks = _numBlocks;
+        numGates = _numGates;
         nextState(OptimisticState.WaitPayment);
     }
 
@@ -138,63 +135,37 @@ contract OptimisticSOX is IOptimisticSOX {
         nextState(OptimisticState.WaitSB);
     }
 
-    function registerBuyerDisputeSponsor(
-        address _sb
-    ) public payable onlyExpected(buyer, OptimisticState.WaitSB) {
-        buyerDisputeSponsor = _sb;
+    function sendBuyerDisputeSponsorFee() public payable {
+        require(
+            currState == OptimisticState.WaitSB,
+            "Cannot run this function in the current state"
+        );
 
-        nextState(OptimisticState.WaitSBFee);
-    }
-
-    function sendBuyerDisputeSponsorFee()
-        public
-        payable
-        onlyExpected(buyerDisputeSponsor, OptimisticState.WaitSBFee)
-    {
         require(
             msg.value >= DISPUTE_FEES + disputeTip,
             "Not enough money deposited to cover dispute fees + tip"
         );
 
+        buyerDisputeSponsor = msg.sender;
         sbDeposit = msg.value;
         sbTip = msg.value - DISPUTE_FEES;
         nextState(OptimisticState.WaitSV);
     }
 
-    function registerVendorDisputeSponsor(
-        address _sv
-    ) public payable onlyExpected(vendor, OptimisticState.WaitSV) {
-        vendorDisputeSponsor = _sv;
+    function sendVendorDisputeSponsorFee() public payable {
+        require(
+            currState == OptimisticState.WaitSV,
+            "Cannot run this function in the current state"
+        );
 
-        nextState(OptimisticState.WaitSVFee);
-    }
-
-    function sendVendorDisputeSponsorFee()
-        public
-        payable
-        onlyExpected(vendorDisputeSponsor, OptimisticState.WaitSVFee)
-    {
         require(
             msg.value >= DISPUTE_FEES + disputeTip,
             "Not enough money deposited to cover dispute fees + tip"
         );
 
+        vendorDisputeSponsor = msg.sender;
         svDeposit = msg.value;
         svTip = msg.value - DISPUTE_FEES;
-
-        nextState(OptimisticState.WaitDisputeStart);
-    }
-
-    function startDispute() public {
-        require(
-            currState == OptimisticState.WaitDisputeStart,
-            "Contract is not waiting for a dispute to start"
-        );
-        require(
-            msg.sender == buyerDisputeSponsor ||
-                msg.sender == vendorDisputeSponsor,
-            "Only a dispute sponsor can start the dispute"
-        );
 
         disputeContract = DisputeDeployer.deployDispute(
             numBlocks,
@@ -214,8 +185,7 @@ contract OptimisticSOX is IOptimisticSOX {
 
     function completeTransaction() public {
         require(
-            currState == OptimisticState.WaitSB ||
-                currState == OptimisticState.WaitSBFee,
+            currState == OptimisticState.WaitSB,
             "Not in a state where the transaction can be completed"
         );
 
@@ -225,10 +195,6 @@ contract OptimisticSOX is IOptimisticSOX {
         }
 
         payable(vendor).transfer(agreedPrice);
-
-        if (currState == OptimisticState.WaitSBFee) {
-            payable(buyer).transfer(sbTip);
-        }
 
         // consider that the remaining funds are for the sponsor
         payable(sponsor).transfer(address(this).balance);
@@ -250,15 +216,6 @@ contract OptimisticSOX is IOptimisticSOX {
             payable(buyerDisputeSponsor).transfer(sbDeposit + sbTip);
 
             payable(buyer).transfer(agreedPrice);
-
-            payable(sponsor).transfer(address(this).balance);
-            return nextState(OptimisticState.End);
-        } else if (currState == OptimisticState.WaitSVFee) {
-            payable(buyerDisputeSponsor).transfer(sbDeposit + sbTip);
-
-            payable(buyer).transfer(agreedPrice);
-
-            payable(vendor).transfer(svTip);
 
             payable(sponsor).transfer(address(this).balance);
             return nextState(OptimisticState.End);

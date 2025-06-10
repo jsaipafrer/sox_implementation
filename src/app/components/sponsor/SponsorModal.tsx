@@ -1,6 +1,8 @@
 import { useState } from "react";
 import Modal from "../common/Modal";
 import Button from "../common/Button";
+import FormSelect from "../common/FormSelect";
+import { ALL_PUBLIC_KEYS } from "@/app/lib/blockchain/config";
 
 interface SponsorModalProps {
     title: string;
@@ -15,7 +17,7 @@ export default function SponsorModal({
     onConfirm,
     id_prefix,
 }: SponsorModalProps) {
-    const [pkSponsor, setPkSponsor] = useState("");
+    const [pkSponsor, setPkSponsor] = useState(ALL_PUBLIC_KEYS[0]);
 
     const onClick = () => {
         onConfirm(pkSponsor);
@@ -25,52 +27,21 @@ export default function SponsorModal({
 
     return (
         <Modal onClose={onClose} title={title}>
-            <div>
-                <table className="w-1/1 border-spacing-y-3 border-spacing-x-4 border-separate">
-                    <tbody>
-                        <tr className="w-1/1">
-                            <td className="w-1/2">
-                                <label htmlFor={`${id_prefix}-sponsor-pk`}>
-                                    Sponsor public key (hex)
-                                </label>
-                            </td>
-                            <td className="w-1/2">
-                                <input
-                                    type="text"
-                                    name={`${id_prefix}-sponsor-pk`}
-                                    id={`${id_prefix}-sponsor-pk`}
-                                    onChange={(e) =>
-                                        setPkSponsor(e.target.value)
-                                    }
-                                    className="bg-white w-full border rounded"
-                                />
-                            </td>
-                        </tr>
-                        <tr className="w-1/1">
-                            <td>
-                                <label htmlFor={`${id_prefix}-sponsor-sig`}>
-                                    Sponsor signature (hex)
-                                </label>
-                            </td>
-                            <td>
-                                <input
-                                    type="text"
-                                    name={`${id_prefix}-sponsor-sig`}
-                                    id={`${id_prefix}-sponsor-sig`}
-                                    className="bg-white w-full border rounded"
-                                />
-                            </td>
-                        </tr>
-                        <tr className="text-center gap-8">
-                            <td>
-                                <Button label="Confirm" onClick={onClick} />
-                            </td>
-                            <td>
-                                <Button label="Cancel" onClick={onClose} />
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div className="">
+                <div className="block">
+                    <FormSelect
+                        id={`${id_prefix}-sponsor-pk`}
+                        value={pkSponsor}
+                        onChange={setPkSponsor}
+                        options={ALL_PUBLIC_KEYS}
+                    >
+                        Public key
+                    </FormSelect>
+                </div>
+                <div className="flex text-center gap-8 mt-8">
+                    <Button label="Confirm" onClick={onClick} />
+                    <Button label="Cancel" onClick={onClose} />
+                </div>
             </div>
         </Modal>
     );

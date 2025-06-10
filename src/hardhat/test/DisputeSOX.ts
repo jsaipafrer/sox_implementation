@@ -251,7 +251,7 @@ describe("DisputeSOX", function () {
                     { value: agreedPrice }
                 )
             ).to.be.revertedWith(
-                "Optimistic contract is not waiting for a dispute to start"
+                "Optimistic contract cannot start a dispute in the current state"
             );
         });
 
@@ -277,7 +277,7 @@ describe("DisputeSOX", function () {
                     { value: agreedPrice - 1n }
                 )
             ).to.be.revertedWith(
-                "Optimistic contract is not waiting for a dispute to start"
+                "Optimistic contract cannot start a dispute in the current state"
             );
         });
     });
