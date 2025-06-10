@@ -111,9 +111,6 @@ export default function OngoingContractsListView({
 
     const reachedTimeout = (c: Contract) => {
         let currDateTime = Math.floor(Date.now() / 1000);
-        console.log(c.nextTimeout);
-        console.log(currDateTime);
-
         if (!c.nextTimeout) return false;
 
         return BigInt(currDateTime) > c.nextTimeout;

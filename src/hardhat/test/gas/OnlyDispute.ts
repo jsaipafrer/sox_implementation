@@ -274,9 +274,6 @@ describe("DisputeSOX", function () {
                     `unexpected state, should be 4 but got ${state}`
                 );
 
-            // vendor submits its commitment and the proofs
-            const gateNum = await contract.a();
-
             let proof = compute_proof_right(
                 evaluated_bytes,
                 num_blocks,
