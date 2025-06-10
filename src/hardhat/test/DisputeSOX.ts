@@ -207,7 +207,7 @@ describe("DisputeSOX", function () {
         it("Should store the correct values + challenge and start with the ChallengeBuyer state", async () => {
             await fastForward(0);
 
-            const expectedChall = (numBlocks + 1n + numGates + 1n) / 2n;
+            const expectedChall = (numBlocks + numGates) / 2n;
 
             expect(await contract.buyer()).to.be.equal(buyer);
             expect(await contract.vendor()).to.be.equal(vendor);

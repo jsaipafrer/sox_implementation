@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sponsored fair exchange
 
-## Getting Started
+This is the code for the sponsored fair exchange project.
+This file contains some guidelines to contribute to it.
 
-First, run the development server:
+# Structure
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+All the code of this project is located in the `src` directory. It is structured as follows:
+
+```
+src
+├── app
+│   ├── api          # API endpoints, mostly for DB calls
+│   ├── components   # React page components
+│   ├── db           # Database and init file for it
+│   ├── lib          # Code for communication with the blockchain + WASM code
+│   ├── page.tsx     # Homepage
+│   ├── user         # User page
+│   └── more...
+├── hardhat
+│   ├── artifacts           # output of smart contract compilation
+│   ├── contracts           # smart contracts (real, mock and test wrappers)
+│   ├── deploy_libraries.ts # library deployment + compilation script
+│   ├── test                # various tests of interaction with smart contracts and WASM, gas reports, ...
+│   └── more...
+└── wasm
+    ├── deploy.sh  # compilation script for the WASM code
+    ├── src        # Rust code for the WASM module
+    └── more...
+
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+# Running
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Requirements
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To run this project, you will need Node.js >= 22.13.1, npm >= 11.3.0 and sqlite3 >= 3.37.2. You will also need 
+to install `tsx` and `typescript` globally:
 
-## Learn More
+```
+  npm i -g tsx typescript
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Running the project
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Before running the project, make sure that you have a file called `sox.sqlite` in `src/app/db`. If not,
+run the following command from the project's root
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+  touch ./src/app/db/sox.sqlite
+  cat ./src/app/db/init.sql | sqlite3 ./src/app/db/sox.sqlite
+```
 
-## Deploy on Vercel
+Even if the file already exists, it is recommended to run these commands, as the database may have some
+data from a previous run of the application and, unless the hardhat node hasn't been turned off since,
+the database won't match the blockchain's content.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Once this is done and the requirements are met, navigate to `src/hardhat` and run the following command 
+(blocking)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+  npx hardhat node
+```
+
+After that, open another terminal, navigate to `src/hardhat` again and run
+
+```
+  tsx deploy_libraries.ts
+```
+
+Wait for it to finish (it should display `Deployed!`) and then go back one level (to `src`) and run the 
+following command (blocking)
+
+```
+  npm run dev
+```
+
+You should now be able to access the platform on your browser at the address `http://localhost:3000`. If not,
+check on the second terminal whether a different port has been selected.
+
+# Compiling Rust code to WASM
+
+If you wish to make modifications to the Rust code and the wasm module, navigate to `src/wasm` and run the 
+`deploy.sh` script. If you wish to deploy the code to a different path, just specify the target path as
+follows:
+
+```
+  ./deploy.sh /home/user/Documents/my-cool-app-with-some-wasm
+```
+
+By default, the path will be `../app/lib/crypto_lib`, which is where the WASM binaries are stored if your
+pwd is `src/wasm`.
+
+# Running tests
+
+The directory `src/hardhat/tests` contains a number of tests. The `.ts` files inside the `test` directory
+are unit tests for the smart contract's and client data interaction. Inside `gas` are some useful tests
+to run for gas estimates. `timing` contains a test (`run.ts`) which will display the time each operation
+of the protocol takes.
+
+To run any of these tests, use the following command:
+
+```
+  npx hardhat test <file>
+```
+
+IMPORTANT: These tests are written assuming that `pwd` is the same directory as the test. This is important
+for some initialization which depends on a static file path. If the path is incorrect, you will get an error
+that looks similar to this:
+
+```
+  Error: ENOENT: no such file or directory, open '../../../app/lib/crypto_lib/crypto_lib_bg.wasm'
+    at async open (node:internal/fs/promises:638:25)
+    at async readFile (node:internal/fs/promises:1242:14)
+    at async main (/home/k2alamiral/project/src/hardhat/test/timing/run.ts:267:20) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '../../../app/lib/crypto_lib/crypto_lib_bg.wasm'
+}
+
+```

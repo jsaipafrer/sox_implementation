@@ -1,7 +1,7 @@
 import { ethers, isAddress } from "ethers";
 import { PROVIDER } from "./config";
-import { getOptimisticState } from "./optimistic";
-import { getDisputeState } from "./dispute";
+import { getNextOptimisticTimeout, getOptimisticState } from "./optimistic";
+import { getDisputeState, getNextDisputeTimeout } from "./dispute";
 
 export async function getBalance(publicKey: string) {
     const balance = await PROVIDER.getBalance(publicKey);
@@ -17,4 +17,14 @@ export async function getState(contract: {
         return getDisputeState(contract.dispute_smart_contract);
 
     return getOptimisticState(contract.optimistic_smart_contract);
+}
+
+export async function getNextTimeout(contract: {
+    optimistic_smart_contract: string;
+    dispute_smart_contract?: string;
+}) {
+    if (contract.dispute_smart_contract)
+        return getNextDisputeTimeout(contract.dispute_smart_contract);
+
+    return getNextOptimisticTimeout(contract.optimistic_smart_contract);
 }

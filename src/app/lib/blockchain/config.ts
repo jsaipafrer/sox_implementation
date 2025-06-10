@@ -1,4 +1,4 @@
-import { Wallet, JsonRpcProvider } from "ethers";
+import { JsonRpcProvider } from "ethers";
 
 export const PROVIDER = new JsonRpcProvider();
 

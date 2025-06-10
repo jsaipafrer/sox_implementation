@@ -53,6 +53,13 @@ export async function getOptimisticState(contractAddr: string) {
     return await contract.currState().catch(() => {});
 }
 
+export async function getNextOptimisticTimeout(contractAddr: string) {
+    if (!isAddress(contractAddr)) return;
+
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    return await contract.nextTimeoutTime().catch(() => {});
+}
+
 export async function getBasicInfo(
     contractAddr: string,
     withDispute?: boolean
@@ -162,4 +169,27 @@ export async function startDispute(sponsorAddr: string, contractAddr: string) {
     await (contract.connect(wallet) as Contract).startDispute();
 
     return await contract.disputeContract();
+}
+
+export async function endOptimisticTimeout(
+    contractAddr: string,
+    requesterAddr: string
+) {
+    if (!isAddress(contractAddr)) return;
+
+    const contract = new Contract(contractAddr, oAbi, PROVIDER);
+    const state = await contract.currState();
+    const privateKey = PK_SK_MAP.get(requesterAddr);
+    if (!privateKey) return;
+    const wallet = new Wallet(privateKey, PROVIDER);
+
+    if (state == 2n) {
+        await (contract.connect(wallet) as Contract).completeDispute();
+        return true;
+    } else if (state != 4n && state != 5n) {
+        await (contract.connect(wallet) as Contract).cancelDispute();
+        return false;
+    } else {
+        throw Error("Cannot end transaction when in dispute or already over");
+    }
 }

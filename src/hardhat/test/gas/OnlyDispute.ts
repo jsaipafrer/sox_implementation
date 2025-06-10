@@ -12,7 +12,7 @@ import {
     evaluate_circuit,
     hpre,
     initSync,
-} from "../../../app/lib/circuits/wasm/circuits";
+} from "../../../app/lib/crypto_lib";
 import { ZeroHash } from "ethers";
 
 const { ethers } = hre;
@@ -96,11 +96,12 @@ before(async function () {
 describe("DisputeSOX", function () {
     it("Only the dispute, ciphertext of 2^16 blocks with only sha256", async function () {
         const module = await readFile(
-            "../../../app/lib/circuits/wasm/circuits_bg.wasm"
+            "../../../app/lib/crypto_lib/crypto_lib_bg.wasm"
         );
         initSync({ module: module });
 
-        for (let size = 1; size < 100; ++size) {
+        for (let size = 1; size < 50; ++size) {
+            console.log(size);
             const file = new Uint8Array(5 * size);
             const key = new Uint8Array(16);
 
@@ -140,67 +141,67 @@ describe("DisputeSOX", function () {
                 vendorDisputeSponsor
             );
 
-            // ================ for 8b ==================
-            // do challenge-response until we get to state WaitVendorData
-            // buyer responds to challenge with incorrect hpre
-            let challenge = await contract.chall();
-            let hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
+            // // ================ for 8a ==================
+            // // do challenge-response until we get to state WaitVendorData
+            // // buyer responds to challenge with incorrect hpre
+            // let challenge = await contract.chall();
+            // let hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
 
-            await contract.connect(buyer).respondChallenge(ZeroHash);
+            // await contract.connect(buyer).respondChallenge(ZeroHash);
 
-            // vendor disagrees once
-            await contract.connect(vendor).giveOpinion(false);
+            // // vendor disagrees once
+            // await contract.connect(vendor).giveOpinion(false);
 
-            // continue doing the same but now vendor agrees
-            let state = await contract.currState();
-            while (state == 0n) {
-                // buyer responds to challenge
-                challenge = await contract.chall();
-                hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
-                await contract.connect(buyer).respondChallenge(hpre_res);
+            // // continue doing the same but now vendor agrees
+            // let state = await contract.currState();
+            // while (state == 0n) {
+            //     // buyer responds to challenge
+            //     challenge = await contract.chall();
+            //     hpre_res = hpre(evaluated_bytes, num_blocks, Number(challenge));
+            //     await contract.connect(buyer).respondChallenge(hpre_res);
 
-                // after disagreeing once, vendor only agrees
-                await contract.connect(vendor).giveOpinion(true);
-                state = await contract.currState();
-            }
+            //     // after disagreeing once, vendor only agrees
+            //     await contract.connect(vendor).giveOpinion(true);
+            //     state = await contract.currState();
+            // }
 
-            // challenge-response is over, should be in state WaitVendorData
-            if (state != 2n)
-                throw new Error(
-                    `unexpected state, should be 2 but got ${state}`
-                );
+            // // challenge-response is over, should be in state WaitVendorData
+            // if (state != 2n)
+            //     throw new Error(
+            //         `unexpected state, should be 2 but got ${state}`
+            //     );
 
-            // vendor submits its commitment and the proofs
-            const gateNum = await contract.a();
+            // // vendor submits its commitment and the proofs
+            // const gateNum = await contract.a();
 
-            let { gate, values, curr_acc, proof1, proof2, proof3, proof_ext } =
-                compute_proofs(
-                    circuit_bytes,
-                    evaluated_bytes,
-                    ct,
-                    Number(gateNum)
-                );
+            // let { gate, values, curr_acc, proof1, proof2, proof3, proof_ext } =
+            //     compute_proofs(
+            //         circuit_bytes,
+            //         evaluated_bytes,
+            //         ct,
+            //         Number(gateNum)
+            //     );
 
-            // Uncomment and set opcode to force contract to evaluate a specific operation
-            // const opcode = 0;
-            // gate = SAMPLE_GATES[opcode];
-            // values = SAMPLE_VALUES[opcode];
-            // console.log(`${opcode}: `);
+            // // Uncomment and set opcode to force contract to evaluate a specific operation
+            // // const opcode = 0;
+            // // gate = SAMPLE_GATES[opcode];
+            // // values = SAMPLE_VALUES[opcode];
+            // // console.log(`${opcode}: `);
 
-            await contract
-                .connect(vendor)
-                .submitCommitment(
-                    commitment.o,
-                    gateNum,
-                    gate,
-                    values,
-                    0n,
-                    curr_acc,
-                    proof1 as Uint8Array[][],
-                    proof2 as Uint8Array[][],
-                    proof3 as Uint8Array[][],
-                    proof_ext as Uint8Array[][]
-                );
+            // await contract
+            //     .connect(vendor)
+            //     .submitCommitment(
+            //         commitment.o,
+            //         gateNum,
+            //         gate,
+            //         values,
+            //         0n,
+            //         curr_acc,
+            //         proof1 as Uint8Array[][],
+            //         proof2 as Uint8Array[][],
+            //         proof3 as Uint8Array[][],
+            //         proof_ext as Uint8Array[][]
+            //     );
 
             // // ================ for 8b ==================
             // let state = await contract.currState();
@@ -250,39 +251,39 @@ describe("DisputeSOX", function () {
             //         proof_ext
             //     );
 
-            // // ================ for 8c ==================
-            // let state = await contract.currState();
-            // while (state == 0n) {
-            //     // buyer responds to challenge
-            //     let challenge = await contract.chall();
-            //     let hpre_res = hpre(
-            //         evaluated_bytes,
-            //         num_blocks,
-            //         Number(challenge)
-            //     );
-            //     await contract.connect(buyer).respondChallenge(hpre_res);
+            // ================ for 8c ==================
+            let state = await contract.currState();
+            while (state == 0n) {
+                // buyer responds to challenge
+                let challenge = await contract.chall();
+                let hpre_res = hpre(
+                    evaluated_bytes,
+                    num_blocks,
+                    Number(challenge)
+                );
+                await contract.connect(buyer).respondChallenge(hpre_res);
 
-            //     // vendor only agrees
-            //     await contract.connect(vendor).giveOpinion(true);
-            //     state = await contract.currState();
-            // }
+                // vendor only agrees
+                await contract.connect(vendor).giveOpinion(true);
+                state = await contract.currState();
+            }
 
-            // // challenge-response is over, should be in state WaitVendorDataRight
-            // if (state != 4n)
-            //     throw new Error(
-            //         `unexpected state, should be 4 but got ${state}`
-            //     );
+            // challenge-response is over, should be in state WaitVendorDataRight
+            if (state != 4n)
+                throw new Error(
+                    `unexpected state, should be 4 but got ${state}`
+                );
 
-            // // vendor submits its commitment and the proofs
-            // const gateNum = await contract.a();
+            // vendor submits its commitment and the proofs
+            const gateNum = await contract.a();
 
-            // let proof = compute_proof_right(
-            //     evaluated_bytes,
-            //     num_blocks,
-            //     num_gates
-            // );
+            let proof = compute_proof_right(
+                evaluated_bytes,
+                num_blocks,
+                num_gates
+            );
 
-            // await contract.connect(vendor).submitCommitmentRight(proof);
+            await contract.connect(vendor).submitCommitmentRight(proof);
 
             if ((await contract.currState()) != 5n) {
                 throw new Error(`didn't work with size ${size}`);

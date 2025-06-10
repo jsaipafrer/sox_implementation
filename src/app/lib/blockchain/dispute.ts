@@ -30,8 +30,17 @@ export async function respondChallenge(
 }
 
 export async function getLatestChallengeResponse(contractAddr: string) {
+    if (!isAddress(contractAddr)) return;
+
     let contract = new Contract(contractAddr, abi, PROVIDER);
     return await contract.getLatestBuyerResponse();
+}
+
+export async function getNextDisputeTimeout(contractAddr: string) {
+    if (!isAddress(contractAddr)) return;
+
+    const contract = new Contract(contractAddr, abi, PROVIDER);
+    return await contract.nextTimeoutTime().catch(() => {});
 }
 
 export async function giveOpinion(
@@ -141,25 +150,25 @@ export async function finishDispute(
     }
 }
 
-async function someShit() {
-    let c = "0xa16E02E87b7454126E5E10d957A927A7F5B5d2be";
-    let contract = new Contract(c, abi, PROVIDER);
+export async function endDisputeTimeout(
+    contractAddr: string,
+    requesterAddr: string
+) {
+    if (!isAddress(contractAddr)) return;
 
-    console.log("i=", await contract.chall());
-    console.log("a=", await contract.a());
-    console.log("b=", await contract.b());
-    console.log("state=", await contract.currState());
-    return 1;
+    const contract = new Contract(contractAddr, abi, PROVIDER);
+    const state = await contract.currState();
+    const privateKey = PK_SK_MAP.get(requesterAddr);
+    if (!privateKey) return;
+    const wallet = new Wallet(privateKey, PROVIDER);
+
+    if ([0, 5].includes(Number(state))) {
+        await (contract.connect(wallet) as Contract).completeDispute();
+        return true;
+    } else if (state != 7) {
+        await (contract.connect(wallet) as Contract).cancelDispute();
+        return false;
+    } else {
+        throw Error("Cannot end dispute when it is already over");
+    }
 }
-
-async function someShit2() {
-    let c = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-    let contract = new Contract(c, abi, PROVIDER);
-
-    console.log("num_blocks=", await contract.numBlocks());
-    console.log("num_gates=", await contract.numGates());
-    return 1;
-}
-
-someShit().then((a) => console.log(a));
-someShit2().then((a) => console.log(a));

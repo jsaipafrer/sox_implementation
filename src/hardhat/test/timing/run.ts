@@ -14,7 +14,7 @@ import __wbg_init, {
     compute_proofs,
     compute_proofs_left,
     compute_proof_right,
-} from "../../../app/lib/circuits/wasm/circuits";
+} from "../../../app/lib/crypto_lib";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const TMP_DIR = "./tmp";
@@ -265,7 +265,7 @@ async function time_vendor_computes_proofs_8c(
 
 async function main() {
     const module = await readFile(
-        "../../../app/lib/circuits/wasm/circuits_bg.wasm"
+        "../../../app/lib/crypto_lib/crypto_lib_bg.wasm"
     );
     initSync({ module: module });
 
@@ -324,8 +324,8 @@ async function main() {
     buyer_time += time;
     vendor_time += time;
 
-    let a = precontract.num_blocks + 1;
-    let b = precontract.num_gates + 1;
+    let a = precontract.num_blocks;
+    let b = precontract.num_gates;
     let chall;
     while (a != b) {
         chall = Math.floor((a + b) / 2);
@@ -339,6 +339,7 @@ async function main() {
         a = chall + 1;
     }
 
+    // these may crash, issok
     const components_8a = await time_vendor_computes_proofs_8a(
         precontract.num_blocks + 3
     );

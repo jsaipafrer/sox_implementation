@@ -7,7 +7,7 @@ import {
     encrypt_block_js,
     hex_to_bytes,
     initSync,
-} from "../../app/lib/circuits/wasm/circuits";
+} from "../../app/lib/crypto_lib";
 import {
     createCipheriv,
     getCipherInfo,
@@ -18,7 +18,7 @@ import { TestAES128Ctr } from "../typechain-types";
 
 before(async () => {
     const module = await readFile(
-        "../../app/lib/circuits/wasm/circuits_bg.wasm"
+        "../../app/lib/crypto_lib/crypto_lib_bg.wasm"
     );
     initSync({ module: module });
 });

@@ -1,5 +1,4 @@
-import { Circuit, Gate } from "./circuits/evaluator";
-import { ethers, getAddress, solidityPackedKeccak256 } from "ethers";
+import { Circuit, Gate } from "./circuits_old/evaluator";
 
 export function concatBytes(data: Uint8Array[]): Uint8Array {
     const res = [];

@@ -1,13 +1,13 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { TestCommitmentOpener } from "../typechain-types";
-import { initSync, commit } from "../../app/lib/circuits/wasm/circuits";
+import { initSync, commit } from "../../app/lib/crypto_lib";
 import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 
 before(async () => {
     const module = await readFile(
-        "../../app/lib/circuits/wasm/circuits_bg.wasm"
+        "../../app/lib/crypto_lib/crypto_lib_bg.wasm"
     );
     initSync({ module: module });
 });

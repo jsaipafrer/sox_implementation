@@ -164,7 +164,7 @@ library AccumulatorVerifier {
         uint32[] memory indices,
         bytes32[] memory values
     )
-        public
+        internal
         pure
         returns (uint32[] memory sortedIndices, bytes32[] memory sortedValues)
     {

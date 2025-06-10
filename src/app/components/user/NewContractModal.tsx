@@ -7,11 +7,11 @@ import FormTextField from "../common/FormTextField";
 import FormSelect from "../common/FormSelect";
 import FormFileInput from "../common/FormFileInput";
 import { downloadFile, fileToBytes } from "../../lib/helpers";
-import { generateKey } from "../../lib/encryption";
+import { generateKey } from "../../lib/encryption_old";
 import init, {
     bytes_to_hex,
     compute_precontract_values,
-} from "@/app/lib/circuits/wasm/circuits";
+} from "@/app/lib/crypto_lib";
 
 interface NewContractModalProps {
     onClose: () => void;

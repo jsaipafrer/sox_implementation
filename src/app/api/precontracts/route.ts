@@ -5,7 +5,7 @@ import db from "../../lib/sqlite";
 import { NextRequest, NextResponse } from "next/server";
 import fs, { readFileSync } from "node:fs";
 import { UPLOADS_PATH, WASM_PATH } from "../files/[id]/route";
-import { hex_to_bytes, initSync } from "@/app/lib/circuits/wasm/circuits";
+import { hex_to_bytes, initSync } from "@/app/lib/crypto_lib";
 
 export async function GET(req: NextRequest) {
     const pk = await req.nextUrl.searchParams.get("pk");
@@ -49,7 +49,7 @@ export async function PUT(req: Request) {
     );
     const id = result.lastInsertRowid;
 
-    const module = readFileSync(`${WASM_PATH}circuits_bg.wasm`);
+    const module = readFileSync(`${WASM_PATH}crypto_lib_bg.wasm`);
     initSync({ module: module });
 
     const fileName = `file_${id}.enc`;

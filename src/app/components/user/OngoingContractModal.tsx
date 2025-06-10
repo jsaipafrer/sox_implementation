@@ -13,9 +13,6 @@ import {
     getDetails,
     sendKey,
     sendPayment,
-    sendSbFee,
-    sendSvFee,
-    startDispute,
 } from "@/app/lib/blockchain/optimistic";
 import {
     finishDispute,
@@ -30,7 +27,6 @@ import {
 import { downloadFile, fileToBytes, openFile } from "@/app/lib/helpers";
 import init, {
     bytes_to_hex,
-    check_argument,
     check_received_ct_key,
     compile_basic_circuit,
     compute_proof_right,
@@ -40,7 +36,7 @@ import init, {
     hex_to_bytes,
     hpre,
     make_argument,
-} from "@/app/lib/circuits/wasm/circuits";
+} from "@/app/lib/crypto_lib";
 
 interface OngoingContractModalProps {
     onClose: () => void;
@@ -59,6 +55,9 @@ function timestampToString(timestamp: bigint) {
         timeZone,
     })}`;
 }
+
+// I'm so sorry for this code, I don't have time to refactor it properly before
+// submitting it :((
 
 export default function OngoingContractModal({
     onClose,
@@ -201,12 +200,6 @@ export default function OngoingContractModal({
                                 />
                             </div>
                             <div className="flex gap-8 justify-between w-full items-center">
-                                {/*<input
-                                    value={sbInput}
-                                    onChange={(e) => setSbInput(e.target.value)}
-                                    className="w-2/3 border border-gray-300 p-2 rounded"
-                                    placeholder="Sponsor public key"
-                                ></input>*/}
                                 <Button
                                     label={`Post argument`}
                                     onClick={clickBuyerPostArgument}
@@ -220,12 +213,6 @@ export default function OngoingContractModal({
                 if (publicKey == pk_vendor)
                     return (
                         <div className="flex gap-8 justify-between w-full items-center">
-                            {/*<input
-                                value={svInput}
-                                onChange={(e) => setSvInput(e.target.value)}
-                                className="w-2/3 border border-gray-300 p-2 rounded"
-                                placeholder="Sponsor public key"
-                            ></input>*/}
                             <Button
                                 label={`Post argument`}
                                 onClick={clickVendorPostArgument}
@@ -504,8 +491,6 @@ export default function OngoingContractModal({
         const { ct, circuit, evaluated_circuit } = await getLargeData();
         const challenge = await getChallenge(dispute_smart_contract!);
 
-        const h_circuit = localStorage.getItem(`h_circuit_${id}`);
-        const h_ct = localStorage.getItem(`h_ct_${id}`);
         if (state == 2) {
             const {
                 gate,
@@ -536,6 +521,8 @@ export default function OngoingContractModal({
                 publicKey,
                 dispute_smart_contract!
             );
+
+            alert("Proofs sent!");
         } else if (state == 3) {
             const { gate, values, curr_acc, proof1, proof2, proof_ext } =
                 compute_proofs_left(
@@ -558,6 +545,7 @@ export default function OngoingContractModal({
                 publicKey,
                 dispute_smart_contract!
             );
+            alert("Proofs sent!");
         } else if (state == 4) {
             const proof = compute_proof_right(
                 evaluated_circuit,
@@ -570,11 +558,17 @@ export default function OngoingContractModal({
                 publicKey,
                 dispute_smart_contract!
             );
+            alert("Proofs sent!");
+        } else {
+            alert("Unexpected state...");
         }
+        onClose();
     };
 
     const clickFinishDispute = async () => {
         await finishDispute(state, publicKey, dispute_smart_contract!);
+        alert("Dispute finished");
+        onClose();
     };
 
     const showCurrentState = () => {
@@ -656,6 +650,7 @@ export default function OngoingContractModal({
         return evaluated_circuit;
     };
 
+    // Prompt user to get evaluated circuit, encrypted file or compiled circuit
     const getLargeData = async () => {
         let ct_file;
         let ct;

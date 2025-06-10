@@ -4,10 +4,7 @@ import Button from "../common/Button";
 import { useEffect, useState } from "react";
 import Modal from "../common/Modal";
 import SponsorModal from "./SponsorModal";
-import init, {
-    check_argument,
-    hex_to_bytes,
-} from "@/app/lib/circuits/wasm/circuits";
+import init, { check_argument, hex_to_bytes } from "@/app/lib/crypto_lib";
 import {
     getBasicInfo,
     sendSbFee,
@@ -114,7 +111,9 @@ export default function DisputeListView() {
             selectedDispute!.optimistic_smart_contract
         ))!;
 
+        console.log(argument_hex);
         const argument = hex_to_bytes(argument_hex);
+        console.log(argument);
         const result = check_argument(argument, commitment, description, key);
 
         // yandere dev core

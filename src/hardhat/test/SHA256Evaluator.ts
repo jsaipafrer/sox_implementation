@@ -7,12 +7,12 @@ import {
     initSync,
     sha256_compress_final_js,
     sha256_compress_js,
-} from "../../app/lib/circuits/wasm/circuits";
+} from "../../app/lib/crypto_lib";
 import { readFile } from "node:fs/promises";
 
 before(async () => {
     const module = await readFile(
-        "../../app/lib/circuits/wasm/circuits_bg.wasm"
+        "../../app/lib/crypto_lib/crypto_lib_bg.wasm"
     );
     initSync({ module: module });
 });

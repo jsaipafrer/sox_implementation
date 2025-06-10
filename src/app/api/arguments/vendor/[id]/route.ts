@@ -1,9 +1,5 @@
 import { UPLOADS_PATH, WASM_PATH } from "@/app/api/files/[id]/route";
-import {
-    bytes_to_hex,
-    hex_to_bytes,
-    initSync,
-} from "@/app/lib/circuits/wasm/circuits";
+import { bytes_to_hex, hex_to_bytes, initSync } from "@/app/lib/crypto_lib";
 import db from "@/app/lib/sqlite";
 import { NextResponse } from "next/server";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -14,7 +10,7 @@ export async function GET(
 ) {
     const { id } = await params;
     const fileName = `argument_vendor_${id}.bin`;
-    const module = readFileSync(`${WASM_PATH}circuits_bg.wasm`);
+    const module = readFileSync(`${WASM_PATH}crypto_lib_bg.wasm`);
     initSync({ module: module });
 
     const argument = readFileSync(`${UPLOADS_PATH}${fileName}`);
@@ -42,7 +38,7 @@ export async function POST(
     req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const module = readFileSync(`${WASM_PATH}circuits_bg.wasm`);
+    const module = readFileSync(`${WASM_PATH}crypto_lib_bg.wasm`);
     initSync({ module: module });
 
     const { argument } = await req.json();

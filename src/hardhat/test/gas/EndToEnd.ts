@@ -10,7 +10,7 @@ import {
     evaluate_circuit,
     hpre,
     initSync,
-} from "../../../app/lib/circuits/wasm/circuits";
+} from "../../../app/lib/crypto_lib";
 
 const { ethers } = hre;
 
@@ -85,7 +85,7 @@ before(async function () {
 
 describe("End-to-end", function () {
     it("End-to-end with 2^16 ct blocks", async function () {
-        const modulePath = "../../../app/lib/circuits/wasm/circuits_bg.wasm";
+        const modulePath = "../../../app/lib/crypto_lib/crypto_lib_bg.wasm";
         const module = await readFile(modulePath);
         initSync({ module: module });
 

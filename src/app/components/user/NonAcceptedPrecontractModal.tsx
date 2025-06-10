@@ -7,7 +7,7 @@ import init, {
     bytes_to_hex,
     check_precontract,
     hex_to_bytes,
-} from "@/app/lib/circuits/wasm/circuits";
+} from "@/app/lib/crypto_lib";
 import { downloadFile } from "@/app/lib/helpers";
 
 const BLOCK_SIZE = 64;

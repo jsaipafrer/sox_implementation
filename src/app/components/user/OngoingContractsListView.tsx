@@ -1,9 +1,11 @@
 "use client";
 
 import Button from "../common/Button";
-import { SetStateAction, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import OngoingContractModal from "./OngoingContractModal";
-import { getState } from "@/app/lib/blockchain/common";
+import { getNextTimeout, getState } from "@/app/lib/blockchain/common";
+import { endDisputeTimeout } from "@/app/lib/blockchain/dispute";
+import { endOptimisticTimeout } from "@/app/lib/blockchain/optimistic";
 
 export type Contract = {
     id: number;
@@ -26,6 +28,7 @@ export type Contract = {
     dispute_smart_contract?: string;
     pk_sb?: string;
     pk_sv?: string;
+    nextTimeout?: bigint;
 };
 
 /*
@@ -85,6 +88,7 @@ export default function OngoingContractsListView({
 
         for (let i = 0; i < contracts.length; ++i) {
             contracts[i].state = await getState(contracts[i]);
+            contracts[i].nextTimeout = await getNextTimeout(contracts[i]);
         }
 
         setContracts(contracts);
@@ -102,6 +106,34 @@ export default function OngoingContractsListView({
             return c.state != undefined
                 ? OPTIMISTIC_STATES[Number(c.state)]
                 : "";
+        }
+    };
+
+    const reachedTimeout = (c: Contract) => {
+        let currDateTime = Math.floor(Date.now() / 1000);
+        console.log(c.nextTimeout);
+        console.log(currDateTime);
+
+        if (!c.nextTimeout) return false;
+
+        return BigInt(currDateTime) > c.nextTimeout;
+    };
+
+    const handleEndTransaction = async (c: Contract) => {
+        if (c.dispute_smart_contract) {
+            const isCompleted = await endDisputeTimeout(
+                c.dispute_smart_contract!,
+                publicKey
+            );
+            alert(`Dispute ${isCompleted ? "completed" : "cancelled"}`);
+            window.dispatchEvent(new Event("reloadData"));
+        } else {
+            const isCompleted = await endOptimisticTimeout(
+                c.optimistic_smart_contract,
+                publicKey
+            );
+            alert(`Transaction ${isCompleted ? "completed" : "cancelled"}`);
+            window.dispatchEvent(new Event("reloadData"));
         }
     };
 
@@ -133,35 +165,51 @@ export default function OngoingContractsListView({
                                 Smart contract address
                             </th>
                             <th className="p-2 w-2/10">State</th>
-                            <th className="p-2 w-2/10"></th>
+                            <th className="p-2 w-1/10"></th>
+                            <th className="p-2 w-1/10"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        {contracts.map((c, i) => (
-                            <tr
-                                key={c.id}
-                                className="even:bg-gray-200 border-b border-black h-15"
-                            >
-                                <td className="p-2 w-1/10">{c.id}</td>
-                                <td className="p-2 w-5/10 text-wrap">
-                                    {c.dispute_smart_contract
-                                        ? c.dispute_smart_contract
-                                        : c.optimistic_smart_contract}
-                                </td>
-                                <td className="p-2 w-2/10 text-wrap">
-                                    {displayState(c)}
-                                </td>
-                                <td className="p-2 w-2/10 text-center">
-                                    <Button
-                                        label="More information"
-                                        onClick={() => {
-                                            handleShowDetails(c);
-                                        }}
-                                        width="95/100"
-                                    />
-                                </td>
-                            </tr>
-                        ))}
+                        {contracts.map((c, i) => {
+                            if (c.dispute_smart_contract && c.state == 7n) {
+                                return <></>;
+                            }
+                            return (
+                                <tr
+                                    key={c.id}
+                                    className="even:bg-gray-200 border-b border-black h-15"
+                                >
+                                    <td className="p-2 w-1/10">{c.id}</td>
+                                    <td className="p-2 w-5/10 text-wrap">
+                                        {c.dispute_smart_contract
+                                            ? c.dispute_smart_contract
+                                            : c.optimistic_smart_contract}
+                                    </td>
+                                    <td className="p-2 w-2/10 text-wrap">
+                                        {displayState(c)}
+                                    </td>
+                                    <td className="p-2 w-1/10 text-center">
+                                        <Button
+                                            label="More info"
+                                            onClick={() => {
+                                                handleShowDetails(c);
+                                            }}
+                                            width="95/100"
+                                        />
+                                    </td>
+                                    <td className="p-2 w-1/10 text-center">
+                                        <Button
+                                            label="End transaction"
+                                            onClick={() => {
+                                                handleEndTransaction(c);
+                                            }}
+                                            width="95/100"
+                                            isDisabled={!reachedTimeout(c)}
+                                        />
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

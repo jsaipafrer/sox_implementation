@@ -106,8 +106,8 @@ export async function deployRealContracts(
             disputeTip,
             timeoutIncrement,
             commitment,
-            numGates,
             numBlocks,
+            numGates,
             {
                 value: sponsorAmount,
             }

@@ -15,9 +15,8 @@ use crate::circuits::{
 use crate::commitment::{commit_hashes, open_commitment_internal, Commitment};
 use crate::encryption::{decrypt, encrypt_and_prepend_iv};
 use crate::sha256::sha256;
-use crate::utils::{bytes_to_hex, error, hex_to_bytes, split_ct_blocks};
+use crate::utils::{error, hex_to_bytes, log, split_ct_blocks};
 use js_sys::{Array, Number, Uint8Array};
-use rand::RngCore;
 use rmp_serde::{decode::from_read, encode::write};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -291,13 +290,18 @@ pub fn check_argument(
     description: String,
     key: String,
 ) -> ArgumentCheckResult {
+    log("eh");
     let argument = DisputeArgument::from_bytes(argument_bin);
+    log("eh");
     let block_size = argument.circuit.block_size;
+    log("eh");
     let h_circuit = acc_circuit(argument.circuit);
+    log("eh");
     let h_ct = acc_ct(argument.ct.as_slice(), block_size as usize);
 
     match open_commitment_internal(&hex_to_bytes(commitment), &argument.opening_value) {
         Ok(opened) => {
+            log("eh");
             let is_valid =
                 opened.len() == 64 && opened[..32].eq(&h_circuit) && opened[32..].eq(&h_ct);
             let pt = decrypt(&argument.ct, &hex_to_bytes(key));
@@ -615,6 +619,8 @@ pub fn compute_proof_right(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::bytes_to_hex;
+    use rand::RngCore;
 
     #[test]
     fn test_basic_circuit() {

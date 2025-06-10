@@ -1,12 +1,8 @@
 import db from "../../../lib/sqlite";
 import { NextResponse } from "next/server";
-import { readFileSync, writeFileSync } from "node:fs";
-import {
-    bytes_to_hex,
-    hex_to_bytes,
-    initSync,
-} from "@/app/lib/circuits/wasm/circuits";
-import { UPLOADS_PATH, WASM_PATH } from "../../files/[id]/route";
+import { readFileSync } from "node:fs";
+import { initSync } from "@/app/lib/crypto_lib";
+import { WASM_PATH } from "../../files/[id]/route";
 
 interface RequestBody {
     contract_id: string;
@@ -14,7 +10,7 @@ interface RequestBody {
 }
 
 export async function POST(req: Request) {
-    const module = readFileSync(`${WASM_PATH}circuits_bg.wasm`);
+    const module = readFileSync(`${WASM_PATH}crypto_lib_bg.wasm`);
     initSync({ module: module });
 
     const body = await req.json();

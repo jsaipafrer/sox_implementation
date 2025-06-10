@@ -1,8 +1,6 @@
 use crate::utils::die;
 use crate::{split_ct_blocks, CompiledCircuit};
 use js_sys::{Array, Uint8Array};
-use rand::prelude::SliceRandom;
-use rand::{Rng, RngCore};
 use rayon::prelude::*;
 use sha3::{Digest, Keccak256};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -141,118 +139,6 @@ pub fn prove_ext(values: &[Vec<u8>]) -> Vec<Vec<Vec<u8>>> {
     prove(values, &vec![(values.len() - 1) as u32])
 }
 
-/// Verifies an extension proof. Not useful at the moment apart from testing.
-///
-/// # Arguments
-/// * `i` - Position in the sequence
-/// * `prev_h` - Previous accumulator value
-/// * `curr_h` - Current accumulator value
-/// * `value` - Value being added
-/// * `proof` - Extension proof components
-///
-/// # Returns
-/// true if the proof is valid, false otherwise
-pub fn verify_ext(
-    i: u32,
-    prev_root: &Vec<u8>,
-    curr_root: &Vec<u8>,
-    added_val: &Vec<u8>,
-    proof: &Vec<Vec<Vec<u8>>>,
-) -> bool {
-    verify(curr_root, &vec![i], &vec![added_val.clone()], proof)
-        && verify_previous(prev_root, proof)
-}
-
-/// Verifies a Merkle proof for multiple values in a tree. Inspired by
-/// https://arxiv.org/pdf/2002.07648
-///
-/// # Arguments
-/// * `root` - Expected Merkle root hash
-/// * `indices` - Vector of indices for the values being proven
-/// * `values` - Slice of values being proven
-/// * `proof` - Vector of proof layers, where each layer contains the sibling hashes needed for
-///             verification
-///
-/// # Returns
-/// `true` if:
-/// - The number of indices matches the number of values
-/// - The proof successfully reconstructs the Merkle root
-/// - All sibling relationships are valid
-/// `false` otherwise
-///
-pub fn verify(
-    root: &Vec<u8>,
-    indices: &Vec<u32>,
-    values: &[Vec<u8>],
-    proof: &Vec<Vec<Vec<u8>>>,
-) -> bool {
-    if indices.len() != values.len() {
-        return false;
-    }
-
-    let mut proof_copy = proof.clone();
-    let mut current_indices = indices.clone();
-    let mut layer: Vec<Vec<u8>> = values.iter().map(hash).collect();
-
-    let mut paired: Vec<(u32, Vec<u8>)> =
-        current_indices.into_iter().zip(layer.into_iter()).collect();
-    paired.sort_by_key(|pair| pair.0);
-    (current_indices, layer) = paired.into_iter().unzip();
-
-    for proof_layer in &mut proof_copy {
-        let mut b: Vec<(u32, u32)> = vec![];
-
-        for i in &current_indices {
-            let neighbor = get_neighbor_idx(i);
-
-            if neighbor < *i {
-                b.push((neighbor, i.clone()))
-            } else {
-                b.push((i.clone(), neighbor))
-            }
-        }
-
-        let mut next_indices: Vec<u32> = vec![];
-        let mut next_layer: Vec<Vec<u8>> = vec![];
-
-        let mut i = 0;
-        while i < b.len() {
-            // use a while loop because we cannot manually increment in for loops
-            if i < b.len() - 1 && b[i].0 == b[i + 1].0 {
-                // duplicate found
-                // this means that b[i][0] and b[i][1] are elements of
-                // nextIndices. Furthermore, b[i] is computed based on
-                // nextIndices[i] and since we skip the duplicates,
-                // it can only be that b[i][0] == nextIndices[i]
-                // => the corresponding values are valuesKeccak[i]
-                // and valuesKeccak[i+1]
-                next_layer.push(concat_and_hash(&layer[i], &layer[i + 1]));
-
-                i += 1;
-            } else if proof_layer.len() > 0 {
-                let last_layer_val = proof_layer.pop().unwrap();
-
-                if current_indices[i] % 2 == 1 {
-                    next_layer.push(concat_and_hash(&last_layer_val, &layer[i]));
-                } else {
-                    next_layer.push(concat_and_hash(&layer[i], &last_layer_val));
-                }
-            } else {
-                // proofLayer is empty, move the element that must be combined to the next layer
-                next_layer.push(layer[i].clone());
-            }
-
-            next_indices.push(current_indices[i] >> 1);
-            i += 1;
-        }
-
-        layer = next_layer.clone();
-        current_indices = next_indices.clone();
-    }
-
-    layer[0].eq(root)
-}
-
 /// Converts a proof to a JavaScript array
 ///
 /// # Arguments
@@ -353,26 +239,6 @@ fn get_neighbor_idx(index: &u32) -> u32 {
     }
 }
 
-// Verifies the previous root of the accumulator. Used only for verify_ext.
-fn verify_previous(prev_root: &Vec<u8>, proof: &Vec<Vec<Vec<u8>>>) -> bool {
-    let mut proof_copy = proof.clone();
-    let mut first_found = false;
-    let mut computed_root: Vec<u8> = vec![];
-
-    for i in 0..proof_copy.len() {
-        while proof_copy[i].len() > 0 {
-            if !first_found {
-                computed_root = proof_copy[i].pop().unwrap();
-                first_found = true;
-            } else {
-                computed_root = concat_and_hash(&proof_copy[i].pop().unwrap(), &computed_root);
-            }
-        }
-    }
-
-    computed_root.eq(prev_root)
-}
-
 // Concatenates two 32-byte vectors and hashes the result. Panics if one of the vectors is not 32
 // bytes long
 fn concat_and_hash(left: &Vec<u8>, right: &Vec<u8>) -> Vec<u8> {
@@ -396,6 +262,8 @@ fn hash(data: &Vec<u8>) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::prelude::SliceRandom;
+    use rand::Rng;
 
     #[test]
     pub fn test_acc_simple_root() {
@@ -478,5 +346,137 @@ mod tests {
         (0..num_bytes)
             .map(|_| (0..1).map(|_| rng.random_range(0..=255)).collect())
             .collect()
+    }
+
+    /// Verifies an extension proof. Not useful at the moment apart from testing.
+    ///
+    /// # Arguments
+    /// * `i` - Position in the sequence
+    /// * `prev_h` - Previous accumulator value
+    /// * `curr_h` - Current accumulator value
+    /// * `value` - Value being added
+    /// * `proof` - Extension proof components
+    ///
+    /// # Returns
+    /// true if the proof is valid, false otherwise
+    fn verify_ext(
+        i: u32,
+        prev_root: &Vec<u8>,
+        curr_root: &Vec<u8>,
+        added_val: &Vec<u8>,
+        proof: &Vec<Vec<Vec<u8>>>,
+    ) -> bool {
+        verify(curr_root, &vec![i], &vec![added_val.clone()], proof)
+            && verify_previous(prev_root, proof)
+    }
+
+    /// Verifies a Merkle proof for multiple values in a tree. Inspired by
+    /// https://arxiv.org/pdf/2002.07648
+    ///
+    /// # Arguments
+    /// * `root` - Expected Merkle root hash
+    /// * `indices` - Vector of indices for the values being proven
+    /// * `values` - Slice of values being proven
+    /// * `proof` - Vector of proof layers, where each layer contains the sibling hashes needed for
+    ///             verification
+    ///
+    /// # Returns
+    /// `true` if:
+    /// - The number of indices matches the number of values
+    /// - The proof successfully reconstructs the Merkle root
+    /// - All sibling relationships are valid
+    /// `false` otherwise
+    ///
+    fn verify(
+        root: &Vec<u8>,
+        indices: &Vec<u32>,
+        values: &[Vec<u8>],
+        proof: &Vec<Vec<Vec<u8>>>,
+    ) -> bool {
+        if indices.len() != values.len() {
+            return false;
+        }
+
+        let mut proof_copy = proof.clone();
+        let mut current_indices = indices.clone();
+        let mut layer: Vec<Vec<u8>> = values.iter().map(hash).collect();
+
+        let mut paired: Vec<(u32, Vec<u8>)> =
+            current_indices.into_iter().zip(layer.into_iter()).collect();
+        paired.sort_by_key(|pair| pair.0);
+        (current_indices, layer) = paired.into_iter().unzip();
+
+        for proof_layer in &mut proof_copy {
+            let mut b: Vec<(u32, u32)> = vec![];
+
+            for i in &current_indices {
+                let neighbor = get_neighbor_idx(i);
+
+                if neighbor < *i {
+                    b.push((neighbor, i.clone()))
+                } else {
+                    b.push((i.clone(), neighbor))
+                }
+            }
+
+            let mut next_indices: Vec<u32> = vec![];
+            let mut next_layer: Vec<Vec<u8>> = vec![];
+
+            let mut i = 0;
+            while i < b.len() {
+                // use a while loop because we cannot manually increment in for loops
+                if i < b.len() - 1 && b[i].0 == b[i + 1].0 {
+                    // duplicate found
+                    // this means that b[i][0] and b[i][1] are elements of
+                    // nextIndices. Furthermore, b[i] is computed based on
+                    // nextIndices[i] and since we skip the duplicates,
+                    // it can only be that b[i][0] == nextIndices[i]
+                    // => the corresponding values are valuesKeccak[i]
+                    // and valuesKeccak[i+1]
+                    next_layer.push(concat_and_hash(&layer[i], &layer[i + 1]));
+
+                    i += 1;
+                } else if proof_layer.len() > 0 {
+                    let last_layer_val = proof_layer.pop().unwrap();
+
+                    if current_indices[i] % 2 == 1 {
+                        next_layer.push(concat_and_hash(&last_layer_val, &layer[i]));
+                    } else {
+                        next_layer.push(concat_and_hash(&layer[i], &last_layer_val));
+                    }
+                } else {
+                    // proofLayer is empty, move the element that must be combined to the next layer
+                    next_layer.push(layer[i].clone());
+                }
+
+                next_indices.push(current_indices[i] >> 1);
+                i += 1;
+            }
+
+            layer = next_layer.clone();
+            current_indices = next_indices.clone();
+        }
+
+        layer[0].eq(root)
+    }
+
+    // Verifies the previous root of the accumulator. Used only for verify_ext.
+    fn verify_previous(prev_root: &Vec<u8>, proof: &Vec<Vec<Vec<u8>>>) -> bool {
+        let mut proof_copy = proof.clone();
+        let mut first_found = false;
+        let mut computed_root: Vec<u8> = vec![];
+
+        for i in 0..proof_copy.len() {
+            while proof_copy[i].len() > 0 {
+                if !first_found {
+                    computed_root = proof_copy[i].pop().unwrap();
+                    first_found = true;
+                } else {
+                    computed_root = concat_and_hash(&proof_copy[i].pop().unwrap(), &computed_root);
+                }
+            }
+        }
+
+        computed_root.eq(prev_root)
     }
 }

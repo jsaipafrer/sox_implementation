@@ -4,8 +4,6 @@ import Button from "../components/common/Button";
 import { useRouter } from "next/navigation";
 import OngoingContractsListView from "../components/user/OngoingContractsListView";
 import { useEffect, useState } from "react";
-import NewDisputeModal from "../components/user/NewDisputeModal";
-import SearchContractModal from "../components/user/SearchContractModal";
 import NewContractModal from "../components/user/NewContractModal";
 import UnsponsoredContractsListView from "../components/user/UnsponsoredContractsListView";
 import NonAcceptedPrecontractsListView from "../components/user/NonAcceptedPrecontractsListView";
@@ -17,8 +15,6 @@ export default function Home() {
     const router = useRouter();
 
     const [modalNewContractShown, showModalNewContract] = useState(false);
-    const [modalNewDisputeShown, showModalNewDispute] = useState(false);
-    const [modalSearchContractShown, showModalSearchContract] = useState(false);
     const [isLoggedIn, setLoggedIn] = useState(false);
     const [publicKey, setPublicKey] = useState(ALL_PUBLIC_KEYS[0]);
     const [balance, setBalance] = useState("Loading...");
@@ -116,20 +112,6 @@ export default function Home() {
                     vendorPk={publicKey}
                     onClose={() => showModalNewContract(false)}
                 ></NewContractModal>
-            )}
-
-            {modalSearchContractShown && (
-                <SearchContractModal
-                    title="Search contract"
-                    onClose={() => showModalSearchContract(false)}
-                ></SearchContractModal>
-            )}
-
-            {modalNewDisputeShown && (
-                <NewDisputeModal
-                    title="New dispute"
-                    onClose={() => showModalNewDispute(false)}
-                ></NewDisputeModal>
             )}
         </main>
     );

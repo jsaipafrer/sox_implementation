@@ -6,7 +6,7 @@ import {
     acc_js,
     prove_js,
     prove_ext_js,
-} from "../../app/lib/circuits/wasm/circuits";
+} from "../../app/lib/crypto_lib";
 import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 
@@ -50,7 +50,7 @@ function pickRandomIndices<T>(array: T[]): [number[], T[]] {
 
 before(async () => {
     const module = await readFile(
-        "../../app/lib/circuits/wasm/circuits_bg.wasm"
+        "../../app/lib/crypto_lib/crypto_lib_bg.wasm"
     );
     initSync({ module: module });
 });

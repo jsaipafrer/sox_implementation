@@ -2,7 +2,6 @@ use crate::accumulator::uint8_array_to_vec_u8;
 use crate::utils::die;
 use aes::cipher::{KeyIvInit, StreamCipher};
 use js_sys::Uint8Array;
-use rand::RngCore;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 type Aes128Ctr128BE = ctr::Ctr128BE<aes::Aes128>;
@@ -128,6 +127,7 @@ fn internal_encrypt(key: &[u8], block: &[u8], ctr: &[u8]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::RngCore;
 
     #[test]
     fn test_aes_ctr_blocks() {

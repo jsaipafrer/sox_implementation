@@ -1,10 +1,10 @@
+use crate::utils::die;
+use crate::{aes_ctr, sha256, simple_operations};
 use ethabi::{encode, Token};
 use rmp_serde::encode::write;
 use rmp_serde::from_read;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::wasm_bindgen;
-use crate::{aes_ctr, sha256, simple_operations};
-use crate::utils::{die};
 
 /// Function type for instructions
 type Instruction = fn(data: &Vec<&Vec<u8>>) -> Vec<u8>;
@@ -22,8 +22,8 @@ fn version_instructions(version: usize) -> Vec<Instruction> {
                 simple_operations::concat_bytes,
                 sha256::sha256_compress_final,
             ]
-        },
-        _ => vec![]
+        }
+        _ => vec![],
     }
 }
 
@@ -36,7 +36,7 @@ pub struct Gate {
 
     /// Indices of connected gates (sons) in the circuit
     #[wasm_bindgen(getter_with_clone)]
-    pub sons: Vec<u32>
+    pub sons: Vec<u32>,
 }
 
 /// Methods for serializing and manipulating gates
@@ -58,7 +58,10 @@ impl Gate {
     ///
     /// Returns a new Gate instance representing a placeholder/dummy gate.
     pub fn dummy() -> Gate {
-        Gate { opcode: u32::MAX, sons: vec![] }
+        Gate {
+            opcode: u32::MAX,
+            sons: vec![],
+        }
     }
 
     /// Checks if the gate is a dummy gate.
@@ -72,10 +75,12 @@ impl Gate {
     ///
     /// Returns a vector of bytes representing the ABI encoding of the gate's opcode and sons.
     pub fn abi_encoded(&self) -> Vec<u8> {
-        encode(&[Token::Array(self.flatten()
-            .iter()
-            .map(|&x| Token::Uint(x.into()))
-            .collect())])
+        encode(&[Token::Array(
+            self.flatten()
+                .iter()
+                .map(|&x| Token::Uint(x.into()))
+                .collect(),
+        )])
     }
 }
 
@@ -142,7 +147,7 @@ impl CompiledCircuit {
             circuit: self.circuit.clone(),
             constants,
             version: self.version,
-            block_size: self.block_size
+            block_size: self.block_size,
         }
     }
 
@@ -223,7 +228,11 @@ pub fn is_constant_idx(idx: u32) -> bool {
 // ct_size INCLUDES THE IV!!!
 // block_size is the size of the blocks in the circuit
 // should only be called for plaintexts of size 64 bytes or less
-fn compile_basic_circuit_one_block(ct_size: u32, description: &[u8], block_size: u32) -> CompiledCircuit {
+fn compile_basic_circuit_one_block(
+    ct_size: u32,
+    description: &[u8],
+    block_size: u32,
+) -> CompiledCircuit {
     let mut circuit: Vec<Gate> = Vec::with_capacity(5);
 
     // dummy gates
@@ -234,41 +243,38 @@ fn compile_basic_circuit_one_block(ct_size: u32, description: &[u8], block_size:
     circuit.push(Gate {
         opcode: 2,
         sons: vec![
-            array_idx_to_constant_idx(3),   // key
-            1, // blocks to encrypt
-            0, // counter
-        ]
+            array_idx_to_constant_idx(3), // key
+            1,                            // blocks to encrypt
+            0,                            // counter
+        ],
     });
 
     // SHA + pad gate
     circuit.push(Gate {
         opcode: 7,
         sons: vec![
-            2,  // block to hash
-            array_idx_to_constant_idx(2),  // ciphertext size
-        ]
+            2,                            // block to hash
+            array_idx_to_constant_idx(2), // ciphertext size
+        ],
     });
 
     // comparison gate
     circuit.push(Gate {
         opcode: 5,
-        sons: vec![
-            3,
-            array_idx_to_constant_idx(1)
-        ]
+        sons: vec![3, array_idx_to_constant_idx(1)],
     });
 
     CompiledCircuit {
         circuit,
         constants: vec![
-            Some(4usize.to_be_bytes().to_vec()),  // counter increment
-            Some(description.to_vec()),                   // description
-            Some(((ct_size - 16) as u64).to_be_bytes().to_vec()),      // size of the plaintext
-            None,                                         // key placeholder
+            Some(4usize.to_be_bytes().to_vec()), // counter increment
+            Some(description.to_vec()),          // description
+            Some(((ct_size - 16) as u64).to_be_bytes().to_vec()), // size of the plaintext
+            None,                                // key placeholder
         ],
         version: 0,
         block_size,
-        num_blocks: 2 // iv + <64B block
+        num_blocks: 2, // iv + <64B block
     }
 }
 
@@ -285,8 +291,7 @@ fn compile_basic_circuit_one_block(ct_size: u32, description: &[u8], block_size:
 pub fn compile_basic_circuit(ct_size: u32, description: &[u8]) -> CompiledCircuit {
     let block_size = 64;
     let pt_size = ct_size - 16; // remove the size of the iv
-    let ct_blocks_number =
-        1  // iv
+    let ct_blocks_number = 1  // iv
             + pt_size / block_size // number of blocks of the plaintext
             + if pt_size % block_size == 0 { 0 } else { 1 }; // ceiling
     if ct_blocks_number < 2 {
@@ -304,7 +309,7 @@ pub fn compile_basic_circuit(ct_size: u32, description: &[u8]) -> CompiledCircui
     // + m-1 SHA compression gates
     // + 1 comparison gate
     // = 4m - 3 gates in total
-    let mut gates: Vec<Gate> = Vec::with_capacity((4*ct_blocks_number - 3) as usize);
+    let mut gates: Vec<Gate> = Vec::with_capacity((4 * ct_blocks_number - 3) as usize);
 
     // dummy gates
     for _ in 0..ct_blocks_number {
@@ -316,17 +321,17 @@ pub fn compile_basic_circuit(ct_size: u32, description: &[u8]) -> CompiledCircui
     gates.push(Gate {
         opcode: 3,
         sons: vec![
-            0, // previous counter value
-            array_idx_to_constant_idx(0) // value to add
-        ]
+            0,                            // previous counter value
+            array_idx_to_constant_idx(0), // value to add
+        ],
     });
     for i in ct_blocks_number..(2 * ct_blocks_number - 3) {
         gates.push(Gate {
             opcode: 3,
             sons: vec![
-                i, // previous counter value
-                array_idx_to_constant_idx(0) // value to add
-            ]
+                i,                            // previous counter value
+                array_idx_to_constant_idx(0), // value to add
+            ],
         });
     }
 
@@ -335,66 +340,63 @@ pub fn compile_basic_circuit(ct_size: u32, description: &[u8]) -> CompiledCircui
     gates.push(Gate {
         opcode: 2,
         sons: vec![
-            array_idx_to_constant_idx(3),   // key
-            1, // blocks to encrypt
-            0, // counter
-        ]
+            array_idx_to_constant_idx(3), // key
+            1,                            // blocks to encrypt
+            0,                            // counter
+        ],
     });
     for i in 2..ct_blocks_number {
         gates.push(Gate {
             opcode: 2,
             sons: vec![
-                array_idx_to_constant_idx(3),   // key
-                i, // blocks to encrypt
-                i + ct_blocks_number - 2, // counter
-            ]
+                array_idx_to_constant_idx(3), // key
+                i,                            // blocks to encrypt
+                i + ct_blocks_number - 2,     // counter
+            ],
         });
     }
 
     // SHA256 compression gates, first one doesn't have a previous hash
     gates.push(Gate {
         opcode: 0,
-        sons: vec![2*ct_blocks_number - 2] // only current block
+        sons: vec![2 * ct_blocks_number - 2], // only current block
     });
-    for i in (3*ct_blocks_number-2)..(4*ct_blocks_number-5) {
+    for i in (3 * ct_blocks_number - 2)..(4 * ct_blocks_number - 5) {
         gates.push(Gate {
             opcode: 0,
             sons: vec![
-                i - 1, // previous hash
-                i - ct_blocks_number + 1 // current block
-            ]
+                i - 1,                    // previous hash
+                i - ct_blocks_number + 1, // current block
+            ],
         });
     }
     // last SHA256 compression gate does the padding as well
     gates.push(Gate {
         opcode: 7,
         sons: vec![
-            4*ct_blocks_number - 6, // previous hash
-            3*ct_blocks_number - 4,  // block to hash
-            array_idx_to_constant_idx(2),  // plaintext size
-        ]
+            4 * ct_blocks_number - 6,     // previous hash
+            3 * ct_blocks_number - 4,     // block to hash
+            array_idx_to_constant_idx(2), // plaintext size
+        ],
     });
 
     // final comparison gate
     gates.push(Gate {
         opcode: 5,
-        sons: vec![
-            4*ct_blocks_number - 5,
-            array_idx_to_constant_idx(1)
-        ]
+        sons: vec![4 * ct_blocks_number - 5, array_idx_to_constant_idx(1)],
     });
 
     CompiledCircuit {
         circuit: gates,
         constants: vec![
-            Some(4u16.to_be_bytes().to_vec()),            // counter increment
-            Some(description.to_vec()),                   // description
-            Some((pt_size as u64).to_be_bytes().to_vec()),      // size of the ciphertext
-            None,                                         // key placeholder
+            Some(4u16.to_be_bytes().to_vec()),             // counter increment
+            Some(description.to_vec()),                    // description
+            Some((pt_size as u64).to_be_bytes().to_vec()), // size of the ciphertext
+            None,                                          // key placeholder
         ],
         version: 0,
         block_size,
-        num_blocks: ct_blocks_number
+        num_blocks: ct_blocks_number,
     }
 }
 
@@ -430,14 +432,15 @@ pub struct CompiledCircuitWithConstants {
 pub fn get_evaluated_sons<'a>(
     gate: &Gate,
     evaluated_circuit: &'a Vec<Vec<u8>>,
-    constants: &'a Vec<Vec<u8>>) -> Vec<&'a Vec<u8>> {
+    constants: &'a Vec<Vec<u8>>,
+) -> Vec<&'a Vec<u8>> {
     let mut sons = Vec::with_capacity(gate.sons.len());
 
     for &s in &gate.sons {
-        if s >= evaluated_circuit.len() as u32 {
-            die("Gates should not have sons after themselves in the circuit");
-        }
         if !is_constant_idx(s) {
+            if s >= evaluated_circuit.len() as u32 {
+                die("Gates should not have non constant sons after themselves in the circuit");
+            }
             sons.push(&evaluated_circuit[s as usize]);
         } else if !constants.is_empty() {
             sons.push(&constants[constant_idx_to_array_idx(s)]);
@@ -455,8 +458,10 @@ pub fn get_evaluated_sons<'a>(
 ///
 /// # Returns
 /// Vector of evaluated values for each gate in the circuit
-pub fn evaluate_circuit_internal(input: &[Vec<u8>], compiled_circuit: CompiledCircuitWithConstants)
-                                 -> Vec<Vec<u8>>{
+pub fn evaluate_circuit_internal(
+    input: &[Vec<u8>],
+    compiled_circuit: CompiledCircuitWithConstants,
+) -> Vec<Vec<u8>> {
     let instructions = version_instructions(compiled_circuit.version as usize);
 
     let mut evaluated_circuit: Vec<Vec<u8>> = Vec::with_capacity(compiled_circuit.circuit.len());
