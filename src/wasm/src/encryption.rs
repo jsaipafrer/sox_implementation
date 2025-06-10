@@ -1,11 +1,18 @@
+use crate::utils::die;
 use aes::cipher::{KeyIvInit, StreamCipher};
 use rand::RngCore;
-use crate::utils::die;
 
 type Aes128Ctr128BE = ctr::Ctr128BE<aes::Aes128>;
 
-// Returns ct = IV (16 bytes) || Enc_k(data) (variable size)
-// The IV is stored in big-endian representation
+/// Encrypts data using AES-128 in counter mode and prepends IV in 16 bytes big endian
+/// representation. `ct = IV (16 bytes) || Enc_k(data) (variable size)`
+///
+/// # Arguments
+/// * `data` - Mutable slice containing data to encrypt
+/// * `key` - Key bytes (must be 16 bytes)
+///
+/// # Returns
+/// Vector containing IV (16 bytes) followed by encrypted data
 pub fn encrypt_and_prepend_iv(mut data: &mut [u8], key: &[u8]) -> Vec<u8> {
     let mut rng = rand::rng();
     let mut iv = vec![0u8; 16];
@@ -13,7 +20,7 @@ pub fn encrypt_and_prepend_iv(mut data: &mut [u8], key: &[u8]) -> Vec<u8> {
 
     let mut cipher = match Aes128Ctr128BE::new_from_slices(key, &iv) {
         Ok(c) => c,
-        Err(_) => { die("Key should be 16 bytes") }
+        Err(_) => die("Key must be 16 bytes"),
     };
 
     cipher.apply_keystream(&mut data);
@@ -25,17 +32,21 @@ pub fn encrypt_and_prepend_iv(mut data: &mut [u8], key: &[u8]) -> Vec<u8> {
     iv
 }
 
-// Returns the plaintext corresponding to the ciphertext CT with AES-128 in counter mode
-// Expects the following format of ciphertext:
-//      ct = IV (16 bytes) || Enc_k(data) (variable size)
-//      IV must be in big-endian representation
+/// Decrypts AES-128 CTR mode ciphertext. The IV must be in big-endian representation.
+///
+/// # Arguments
+/// * `ct` - Ciphertext bytes in format: IV (16 bytes) || Encrypted data
+/// * `key` - Key bytes (must be 16 bytes)
+///
+/// # Returns
+/// Decrypted plaintext bytes
 pub fn decrypt(ct: &[u8], key: &[u8]) -> Vec<u8> {
     let iv = &ct[..16];
     let mut cipher = match Aes128Ctr128BE::new_from_slices(key, &iv) {
         Ok(c) => c,
-        Err(_) => { die("Key should be 16 bytes") }
+        Err(_) => die("Key should be 16 bytes"),
     };
-    
+
     let mut res = ct[16..].to_vec();
 
     cipher.apply_keystream(&mut res);
@@ -43,23 +54,28 @@ pub fn decrypt(ct: &[u8], key: &[u8]) -> Vec<u8> {
     res
 }
 
-#[test]
-fn test_encrypt_decrypt_random_data() {
-    let mut rng = rand::rng();
-    for i in 1..(1<<16) {
-        let mut data = vec![0u8; i];
-        rng.fill_bytes(&mut data);
-        let plaintext = data.clone();
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        let mut key = vec![0u8; 16];
-        rng.fill_bytes(&mut key);
+    #[test]
+    fn test_encrypt_decrypt_random_data() {
+        let mut rng = rand::rng();
+        for i in 1..(1 << 16) {
+            let mut data = vec![0u8; i];
+            rng.fill_bytes(&mut data);
+            let plaintext = data.clone();
 
-        // encrypt
-        let ct = encrypt_and_prepend_iv(&mut data, &key);
+            let mut key = vec![0u8; 16];
+            rng.fill_bytes(&mut key);
 
-        // decrypt
-        let dec_ct = decrypt(&ct, &key);
+            // encrypt
+            let ct = encrypt_and_prepend_iv(&mut data, &key);
 
-        assert_eq!(plaintext, dec_ct);
+            // decrypt
+            let dec_ct = decrypt(&ct, &key);
+
+            assert_eq!(plaintext, dec_ct);
+        }
     }
 }

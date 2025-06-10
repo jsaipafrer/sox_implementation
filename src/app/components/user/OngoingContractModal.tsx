@@ -99,11 +99,9 @@ export default function OngoingContractModal({
     const [bSponsorDeposit, setBSponsorDeposit] = useState("Loading...");
     const [vSponsorDeposit, setVSponsorDeposit] = useState("Loading...");
     const [detailsShown, setShowDetails] = useState(false);
-    const [keyInput, setKeyInput] = useState(localStorage.getItem(`key_${id}`));
-    const [sbInput, setSbInput] = useState("");
-    const [svInput, setSvInput] = useState("");
-    const [commitment, setCommitment] = useState("");
-    const [challengeFile, setChallengeFile] = useState<FileList | null>();
+    const [keyInput, setKeyInput] = useState(
+        localStorage.getItem(`key_${id}`)!
+    );
     const [challengeBtnLabel, setChallengeLabel] = useState(
         "Respond to challenge"
     );
@@ -117,7 +115,6 @@ export default function OngoingContractModal({
                 setState(Number(data.state));
 
                 setNextTimeout(timestampToString(data.nextTimeout));
-                setCommitment(data.commitment);
             }
         );
     }, [optimistic_smart_contract]);
