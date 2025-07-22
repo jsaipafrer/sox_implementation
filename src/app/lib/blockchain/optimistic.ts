@@ -184,10 +184,10 @@ export async function endOptimisticTimeout(
     const wallet = new Wallet(privateKey, PROVIDER);
 
     if (state == 2n) {
-        await (contract.connect(wallet) as Contract).completeDispute();
+        await (contract.connect(wallet) as Contract).completeTransaction();
         return true;
     } else if (state != 4n && state != 5n) {
-        await (contract.connect(wallet) as Contract).cancelDispute();
+        await (contract.connect(wallet) as Contract).cancelTransaction();
         return false;
     } else {
         throw Error("Cannot end transaction when in dispute or already over");

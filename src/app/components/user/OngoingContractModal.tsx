@@ -231,9 +231,8 @@ export default function OngoingContractModal({
             price + tip_completion
         );
         if (res) {
-            console.log(res);
-            onClose();
             alert("Payment has been transferred");
+            onClose();
             window.dispatchEvent(new Event("reloadData"));
         } else {
             alert("Something wrong happened during the payment");
@@ -253,9 +252,9 @@ export default function OngoingContractModal({
     const clickDecryptFile = async () => {
         await init();
         let file: File | null = null;
-        if (confirm("Do you want to select a local file ?")) {
-            file = await openFile();
-        }
+        // if (confirm("Do you want to select a local file ?")) {
+        //     file = await openFile();
+        // }
 
         let ct: Uint8Array | null = null;
         if (file) {
@@ -306,11 +305,12 @@ export default function OngoingContractModal({
     const clickBuyerPostArgument = async () => {
         await init();
 
+        let file;
         let ct: Uint8Array | undefined = undefined;
         if (confirm("Do you want to select a file ?")) {
-            const file = await openFile();
-            if (file) ct = await fileToBytes(file);
+            file = await openFile();
         }
+        if (file) ct = await fileToBytes(file);
 
         if (!ct) {
             ct = hex_to_bytes(
@@ -345,11 +345,12 @@ export default function OngoingContractModal({
     const clickVendorPostArgument = async () => {
         await init();
 
+        let file;
         let ct: Uint8Array | undefined = undefined;
-        if (confirm("Do you want to select a file ?")) {
-            const file = await openFile();
-            if (file) ct = await fileToBytes(file);
-        }
+        // if (confirm("Do you want to select a file ?")) {
+        //     file = await openFile();
+        // }
+        // if (file) ct = await fileToBytes(file);
 
         if (!ct) {
             ct = hex_to_bytes(
@@ -490,6 +491,7 @@ export default function OngoingContractModal({
         await init();
         const { ct, circuit, evaluated_circuit } = await getLargeData();
         const challenge = await getChallenge(dispute_smart_contract!);
+        console.log("hey");
 
         if (state == 2) {
             const {
@@ -586,9 +588,9 @@ export default function OngoingContractModal({
         let circuit_file;
         let evaluated_circuit_file;
 
-        if (confirm("Do you have an evaluated circuit ?")) {
-            evaluated_circuit_file = await openFile();
-        }
+        // if (confirm("Do you have an evaluated circuit ?")) {
+        //     evaluated_circuit_file = await openFile();
+        // }
 
         if (
             !evaluated_circuit_file &&
@@ -597,12 +599,12 @@ export default function OngoingContractModal({
             ct_file = await openFile();
         }
 
-        if (
-            !evaluated_circuit_file &&
-            confirm("Do you want to select a circuit ?")
-        ) {
-            circuit_file = await openFile();
-        }
+        // if (
+        //     !evaluated_circuit_file &&
+        //     confirm("Do you want to select a circuit ?")
+        // ) {
+        //     circuit_file = await openFile();
+        // }
 
         let evaluated_circuit;
 
@@ -643,8 +645,8 @@ export default function OngoingContractModal({
                 [key],
                 item_description
             ).to_bytes();
-            if (confirm("Save evaluated circuit ?"))
-                await downloadFile(evaluated_circuit, "evaluated_circuit.bin");
+            // if (confirm("Save evaluated circuit ?"))
+            //     await downloadFile(evaluated_circuit, "evaluated_circuit.bin");
         }
 
         return evaluated_circuit;
@@ -661,17 +663,17 @@ export default function OngoingContractModal({
         let evaluated_circuit_file;
         let evaluated_circuit;
 
-        if (confirm("Do you have an evaluated circuit ?")) {
-            evaluated_circuit_file = await openFile();
-        }
+        // if (confirm("Do you have an evaluated circuit ?")) {
+        //     evaluated_circuit_file = await openFile();
+        // }
 
-        if (confirm("Do you want to select the encrypted file ?")) {
-            ct_file = await openFile();
-        }
+        // if (confirm("Do you want to select the encrypted file ?")) {
+        //     ct_file = await openFile();
+        // }
 
-        if (confirm("Do you want to select a circuit ?")) {
-            circuit_file = await openFile();
-        }
+        // if (confirm("Do you want to select a circuit ?")) {
+        //     circuit_file = await openFile();
+        // }
 
         if (ct_file) {
             ct = await fileToBytes(ct_file);

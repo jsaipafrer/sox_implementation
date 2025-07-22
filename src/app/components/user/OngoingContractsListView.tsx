@@ -168,7 +168,10 @@ export default function OngoingContractsListView({
                     </thead>
                     <tbody>
                         {contracts.map((c, i) => {
-                            if (c.dispute_smart_contract && c.state == 7n) {
+                            if (
+                                (!c.dispute_smart_contract && c.state == 5n) ||
+                                (c.dispute_smart_contract && c.state == 7n)
+                            ) {
                                 return <></>;
                             }
                             return (

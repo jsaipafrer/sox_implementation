@@ -85,10 +85,10 @@ export default function NewContractModal({
         localStorage.setItem(`h_ct_${id}`, bytes_to_hex(h_ct));
         localStorage.setItem(`key_${id}`, keyHex);
 
-        if (confirm("Do you want to save the encrypted file ?"))
-            downloadFile(ct, "encrypted_file.bin");
-        if (confirm("Do you want to save the circuit data ?"))
-            downloadFile(circuit_bytes, "circuit.bin");
+        // if (confirm("Do you want to save the encrypted file ?"))
+        //     downloadFile(ct, "encrypted_file.bin");
+        // if (confirm("Do you want to save the circuit data ?"))
+        //     downloadFile(circuit_bytes, "circuit.bin");
 
         window.dispatchEvent(new Event("reloadData"));
         onClose();
