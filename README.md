@@ -34,17 +34,16 @@ src
 
 ## Requirements
 
-To run this project, you will need Node.js >= 22.13.1, npm >= 11.3.0 and sqlite3 >= 3.37.2. You will also need 
-to install `tsx` and `typescript` globally:
+To run this project, you will need Node.js >= 22.13.1, npm >= 11.3.0. You will also need to install `tsx` and `typescript`:
 
 ```
-  npm i -g tsx typescript
+  npm i tsx typescript
 ```
 
 ## Running the project
 
 Before running the project, make sure that you have a file called `sox.sqlite` in `src/app/db`. If not,
-run the following command from the project's root
+run the following command from the project's root (requires sqlite3 >= 3.37.2)
 
 ```
   touch ./src/app/db/sox.sqlite
@@ -59,13 +58,13 @@ Once this is done and the requirements are met, navigate to `src/hardhat` and ru
 (blocking)
 
 ```
-  npx hardhat node
+  npm i && npx hardhat node
 ```
 
-After that, open another terminal, navigate to `src/hardhat` again and run
+Once the node is running, open another terminal, navigate to `src/hardhat` again and run
 
 ```
-  tsx deploy_libraries.ts
+  npx hardhat compile && npx tsx deploy_libraries.ts
 ```
 
 Wait for it to finish (it should display `Deployed!`) and then go back one level (to `src`) and run the 
@@ -81,15 +80,15 @@ check on the second terminal whether a different port has been selected.
 # Compiling Rust code to WASM
 
 If you wish to make modifications to the Rust code and the wasm module, navigate to `src/wasm` and run the 
-`deploy.sh` script. If you wish to deploy the code to a different path, just specify the target path as
+`deploy.sh` script. If you wish to deploy the code to a different path, you first need to install [wasm-pack](https://developer.mozilla.org/en-US/docs/WebAssembly/Guides/Rust_to_Wasm) and then specify the target path as
 follows:
 
 ```
   ./deploy.sh /home/user/Documents/my-cool-app-with-some-wasm
 ```
 
-By default, the path will be `../app/lib/crypto_lib`, which is where the WASM binaries are stored if your
-pwd is `src/wasm`.
+If not specified, the target path will be `../app/lib/crypto_lib`, which is where the WASM 
+binaries are stored if your current working directory is is `src/wasm`.
 
 # Running tests
 
