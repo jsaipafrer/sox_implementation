@@ -451,7 +451,7 @@ contract DisputeSOX {
             "Not in a state where the dispute can be completed"
         );
 
-        if (currState == State.Complete && msg.sender != buyer) {
+        if (currState != State.Complete && msg.sender != buyer) {
             // timeout does NOT need to be checked if the contract is marked
             // as Complete or if the buyer decides to mark it as such (gave
             // up). In any other case, it needs to be checked.
