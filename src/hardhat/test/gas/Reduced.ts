@@ -102,8 +102,7 @@ Reduced:
             cost difference with our implementation is due to our usage of
             message errors in the `require()` clauses. Storing these messages
             increases the price in a substantial manner. Adding these to 
-            OptiSwap's optimistic contract increases the price to almost 900k 
-            gas.
+            OptiSwap's optimistic contract increases the price to >800k gas.
 
         Execution:
             - Optimistic: Execution costs are higher than on Optiswap's paper.
