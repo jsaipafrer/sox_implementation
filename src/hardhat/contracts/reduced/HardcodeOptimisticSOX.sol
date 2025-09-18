@@ -14,33 +14,31 @@ enum OptimisticState {
 }
 
 /**
- * @title ReducedOptimisticSOX
+ * @title HardcodeOptimisticSOX
  * @notice A reduced version of OptimisticSOX without some of the components
- * @dev Does the same as OptimisticSOX but doesn't track the balances, the
- *      sponsor nor the dispute smart contract. This is used to estimate the
- *      gas price of the protocol and limiting the effect of the "extra"
- *      ("extra" = costs associated to the hardening and/or UX elements).
+ * @dev Similar to ReducedOptimisticSOX but uses hardcoded values for the
+ *      parameters that were previously set through the constructor.
  */
-contract ReducedOptimisticSOX {
+contract HardcodeOptimisticSOX {
     /**
      * @dev The sponsor fees required for the transaction.
      */
-    uint256 constant SPONSOR_FEES = 5 wei; // dummy value
+    uint256 constant SPONSOR_FEES = 5 wei;
     /**
      * @dev The dispute fees required for the transaction.
      */
-    uint256 constant DISPUTE_FEES = 10 wei; // dummy value
+    uint256 constant DISPUTE_FEES = 10 wei;
 
     // Addresses
     /**
      * @dev The address of the buyer.
      */
-    address public buyer;
+    address public buyer = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     /**
      * @dev The address of the vendor.
      */
-    address public vendor;
+    address public vendor = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
 
     /**
      * @dev The current state of the optimistic phase.
@@ -55,12 +53,12 @@ contract ReducedOptimisticSOX {
     /**
      * @dev The agreed price for the asset.
      */
-    uint256 public agreedPrice;
+    uint256 public agreedPrice = 100;
 
     /**
      * @dev The increment for the timeout.
      */
-    uint256 public timeoutIncrement;
+    uint256 public timeoutIncrement = 120;
 
     /**
      * @dev The next time the timeout is triggered (unless state changes).
@@ -84,17 +82,8 @@ contract ReducedOptimisticSOX {
         nextTimeoutTime = block.timestamp + timeoutIncrement;
     }
 
-    constructor(
-        address _buyer,
-        address _vendor,
-        uint256 _agreedPrice,
-        uint256 _timeoutIncrement
-    ) payable {
+    constructor() payable {
         require(msg.value >= SPONSOR_FEES, "Not enough money to cover fees");
-        buyer = _buyer;
-        vendor = _vendor;
-        agreedPrice = _agreedPrice;
-        timeoutIncrement = _timeoutIncrement;
         nextState(OptimisticState.WaitPayment);
     }
 

@@ -5,14 +5,28 @@ import "hardhat-gas-reporter";
 
 const config: HardhatUserConfig = {
     solidity: {
-        version: "0.8.28",
-        settings: {
-            viaIR: true,
-            optimizer: {
-                enabled: true,
-                runs: 1000,
+        compilers: [
+            {
+                version: "0.8.28",
+                settings: {
+                    viaIR: true,
+                    optimizer: {
+                        enabled: true,
+                        runs: 1000,
+                    },
+                },
             },
-        },
+            {
+                version: "0.4.23",
+                settings: {
+                    viaIR: true,
+                    optimizer: {
+                        enabled: true,
+                        runs: 1000,
+                    },
+                },
+            },
+        ],
     },
     networks: {
         hardhat: {

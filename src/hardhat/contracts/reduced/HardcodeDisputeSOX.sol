@@ -6,11 +6,11 @@ import {CircuitEvaluator} from "../EvaluatorSOX.sol";
 import {CommitmentOpener} from "../CommitmentSOX.sol";
 
 /**
- * @title ReducedDisputeSOX
- * @dev This contract is the basic implementation of the dispute resolution
- *      phase in SOX.
+ * @title HardcodeDisputeSOX
+ * @dev Similar to ReducedDisputeSOX but uses hardcoded values for the
+ *      parameters that were previously set through the constructor.
  */
-contract ReducedDisputeSOX {
+contract HardcodeDisputeSOX {
     /**
      * @dev Enum representing the different states of the dispute resolution process
      */
@@ -33,27 +33,28 @@ contract ReducedDisputeSOX {
     /**
      * @dev The address of the buyer
      */
-    address public buyer;
+    address public buyer = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     /**
      * @dev The address of the vendor
      */
-    address public vendor;
+    address public vendor = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
 
     /**
      * @dev The number of blocks of the ciphertext (m in the paper)
      */
-    uint32 public numBlocks;
+    uint32 public numBlocks = 1 << 24;
 
     /**
      * @dev The number of gates in the circuit (n in the paper)
      */
-    uint32 public numGates;
+    uint32 public numGates = 4 * numBlocks - 4;
 
     /**
      * @dev The commitment value
      */
-    bytes32 public commitment;
+    bytes32 public commitment =
+        hex"7d3a608bb850f47c2d77d6be73b8f93c94a80264b7bb3cc5c7d2fb54d07ef6b9";
 
     /**
      * @dev The first value used for the challenge
@@ -83,12 +84,12 @@ contract ReducedDisputeSOX {
     /**
      * @dev The value after which an operation is considered as timed out
      */
-    uint256 public timeoutIncrement;
+    uint256 public timeoutIncrement = 120;
 
     /**
      * @dev The price agreed by the vendor and the buyer for the asset
      */
-    uint256 public agreedPrice;
+    uint256 public agreedPrice = 100;
 
     /**
      * @dev Constant used to check whether a gate's son is a constant
@@ -106,26 +107,9 @@ contract ReducedDisputeSOX {
         _;
     }
 
-    constructor(
-        address _buyer,
-        address _vendor,
-        uint32 _agreedPrice,
-        uint32 _timeoutIncrement,
-        uint32 _numBlocks,
-        uint32 _numGates,
-        bytes32 _commitment
-    ) payable {
-        buyer = _buyer;
-        vendor = _vendor;
-        timeoutIncrement = _timeoutIncrement;
-        agreedPrice = _agreedPrice;
-
-        numBlocks = _numBlocks;
-        numGates = _numGates;
-        commitment = _commitment;
-
-        a = _numBlocks; // no +1 because index starts at 0
-        b = _numGates; // same here
+    constructor() payable {
+        a = numBlocks; // no +1 because index starts at 0
+        b = numGates; // same here
         chall = (a + b) / 2; // integer division
         nextState(State.ChallengeBuyer);
     }
